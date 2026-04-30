@@ -8,10 +8,6 @@
 python -m venv venv
 ```
 
-```macos
-python3 -m venv venv
-```
-
 ### 2. Activate the virtual environment
 
 **macOS**
@@ -28,16 +24,8 @@ venv\Scripts\activate
 
 ### 3. Install dependencies
 
-If a `requirements.txt` file exists:
-
 ```bash
 pip install -r requirements.txt
-```
-
-If it does not exist, install the basic FastAPI packages:
-
-```bash
-pip install fastapi uvicorn
 ```
 
 ### 4. Start the application
