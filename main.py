@@ -16,7 +16,7 @@ connection_string = (
     f"UID={os.getenv('DB_USER')};"
     f"PWD={os.getenv('DB_PASSWORD')};"
     "Encrypt=yes;"
-    "TrustServerCertificate=no;"
+    "TrustServerCertificate=Yes;"
     "Connection Timeout=30;"
 )
 
