@@ -33,10 +33,9 @@ def get_db_connection():
 def get_paises():
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        # Seleccionamos columnas del esquema del profesor
         cursor.execute("SELECT numero, nombre, capital FROM paises")
-        columns = [column[0] for column in cursor.description]
-        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+      
+        results = [dict(row) for row in cursor.fetchall()]
         return results
 
 @app.get("/")
