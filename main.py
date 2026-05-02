@@ -17,7 +17,8 @@ connection_string = (
     f"PWD={os.getenv('DB_PASSWORD')};"
     "Encrypt=yes;"
     "TrustServerCertificate=Yes;"
-    "Connection Timeout=30;"
+    "Login Timeout=60;"
+    "Connection Timeout=60;"
 )
 
 @contextmanager
