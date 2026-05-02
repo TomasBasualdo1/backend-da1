@@ -12,14 +12,22 @@ app = FastAPI()
 
 @contextmanager
 def get_db_connection():
+    conn = None
     try:
-      database_url = os.getenv("DATABASE_URL")
-        # Conectamos a PostgreSQL (y le pedimos que nos devuelva diccionarios en vez de tuplas sueltas)
-      conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-      return conn
+        database_url = os.getenv("DATABASE_URL")
+        # Conectamos a PostgreSQL
+        conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+        
+        # En lugar de return, usamos yield para que funcione el 'with'
+        yield conn
+        
     except Exception as e:
-      print(f"Error conectando a Supabase: {e}")
-      raise e
+        print(f"Error conectando a Supabase: {e}")
+        raise e
+    finally:
+        # Esto asegura que la conexión se cierre siempre, pase lo que pase
+        if conn is not None:
+            conn.close()
 
 @app.get("/paises")
 def get_paises():
