@@ -1,5 +1,7 @@
 import os
-import pyodbc
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
 from fastapi import FastAPI, HTTPException
 from contextlib import contextmanager
 from dotenv import load_dotenv
@@ -8,26 +10,16 @@ load_dotenv()
 
 app = FastAPI()
 
-# Configuración de la cadena de conexión
-connection_string = (
-    f"DRIVER={os.getenv('DB_DRIVER')};"
-    f"SERVER={os.getenv('DB_SERVER')};"
-    f"DATABASE={os.getenv('DB_NAME')};"
-    f"UID={os.getenv('DB_USER')};"
-    f"PWD={os.getenv('DB_PASSWORD')};"
-    "Encrypt=yes;"
-    "TrustServerCertificate=Yes;"
-    "Login Timeout=60;"
-    "Connection Timeout=60;"
-)
-
 @contextmanager
 def get_db_connection():
-    conn = pyodbc.connect(connection_string)
     try:
-        yield conn
-    finally:
-        conn.close()
+      database_url = os.getenv("DATABASE_URL")
+        # Conectamos a PostgreSQL (y le pedimos que nos devuelva diccionarios en vez de tuplas sueltas)
+      conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+      return conn
+    except Exception as e:
+      print(f"Error conectando a Supabase: {e}")
+      raise e
 
 @app.get("/paises")
 def get_paises():
