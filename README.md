@@ -35,7 +35,7 @@ venv\Scripts\activate.bat
 #### Windows Git Bash
 
 ```bash
-source venv/Scripts/activate
+source .venv/Scripts/activate
 ```
 
 ### 3. Install dependencies

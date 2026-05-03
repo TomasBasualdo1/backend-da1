@@ -1,0 +1,2 @@
+class SubastaRepository:
+    pass

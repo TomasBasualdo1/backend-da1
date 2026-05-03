@@ -1,0 +1,1650 @@
+openapi: 3.0.0
+info:
+  title: API Sistema de Subastas
+  version: 1.2.0
+  description: Documentacion de la API REST para la aplicacion movil del Sistema de Subastas.
+  contact:
+    name: Equipo de Desarrollo
+tags:
+  - name: Autenticacion
+    description: Endpoints para registro login y recupero de cuenta.
+  - name: Perfil
+    description: Gestion de la cuenta del usuario y sus medios de pago.
+  - name: Subastas
+    description: Exploracion del catalogo y subastas activas.
+  - name: Motor de Pujas
+    description: Endpoints transaccionales para ofertar.
+  - name: Streaming
+    description: Tiempo real para cambios de pujas y items.
+  - name: Notificaciones
+    description: Mensajes privados del sistema.
+  - name: Administracion
+    description: Operaciones internas de la empresa.
+
+paths:
+  # ----------------------------------------
+  # AUTENTICACION Y REGISTRO
+  # ----------------------------------------
+  /auth/registro/paso1:
+    post:
+      summary: Registro inicial (Paso 1)
+      tags: [Autenticacion]
+      description: Recibe datos personales y fotos del documento. Queda pendiente de verificacion.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/RegistroPaso1"
+      responses:
+        "201":
+          description: Registro inicial creado. Se envio email para el paso 2.
+        "400":
+          description: Error de validacion en los datos enviados.
+        "409":
+          description: El documento o email ya se encuentra registrado en el sistema.
+
+  /auth/registro/paso2:
+    post:
+      summary: Completar registro (Paso 2)
+      tags: [Autenticacion]
+      description: El usuario ingresa desde el link de su correo para definir su clave.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistroPaso2"
+      responses:
+        "201":
+          description: Registro completado exitosamente. Usuario creado.
+        "400":
+          description: Token invalido o expirado.
+        "404":
+          description: Registro previo no encontrado.
+
+  /auth/login:
+    post:
+      summary: Iniciar sesion
+      tags: [Autenticacion]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login"
+      responses:
+        "200":
+          description: Login exitoso. Devuelve el token JWT.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Datos de entrada invalidos o campos faltantes.
+        "401":
+          description: Credenciales invalidas.
+        "403":
+          description: Usuario bloqueado o pendiente de aprobacion por la empresa.
+
+  /auth/verify-email:
+    post:
+      summary: Verificar email
+      tags: [Autenticacion]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmail"
+      responses:
+        "200":
+          description: Email verificado correctamente.
+        "400":
+          description: Token invalido o expirado.
+        "409":
+          description: El email ya fue verificado previamente.
+
+  /auth/forgot-password:
+    post:
+      summary: Solicitar recupero de clave
+      tags: [Autenticacion]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPassword"
+      responses:
+        "200":
+          description: Se envio un email de recupero.
+        "404":
+          description: No existe una cuenta registrada con ese email.
+
+  /auth/reset-password:
+    post:
+      summary: Confirmar recupero de clave
+      tags: [Autenticacion]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPassword"
+      responses:
+        "200":
+          description: Clave actualizada.
+        "400":
+          description: Token invalido o expirado.
+
+    # ----------------------------------------
+    # PERFIL DEL USUARIO
+    # ----------------------------------------
+  /usuarios/me:
+    get:
+      summary: Obtener el perfil del usuario autenticado
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+        "401":
+          description: No autorizado.
+
+    patch:
+      summary: Actualizar datos del perfil
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UsuarioUpdate"
+      responses:
+        "200":
+          description: Perfil actualizado exitosamente.
+        "401":
+          description: No autorizado.
+
+  /usuarios/me/medios-pago:
+    get:
+      summary: Listar medios de pago
+      tags: [Perfil]
+      description: Muestra cuentas bancarias, tarjetas o cheques registrados por el usuario.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de medios de pago.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MedioPago"
+        "401":
+          description: No autorizado.
+    post:
+      summary: Agregar medio de pago
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MedioPagoInput"
+      responses:
+        "201":
+          description: Medio de pago agregado. Queda pendiente de verificacion.
+        "401":
+          description: No autorizado.
+
+  /usuarios/me/medios-pago/{id}:
+    patch:
+      summary: Actualizar medio de pago
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MedioPagoUpdate"
+      responses:
+        "200":
+          description: Medio de pago actualizado.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Medio de pago no encontrado.
+    delete:
+      summary: Eliminar medio de pago
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Medio de pago eliminado.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Medio de pago no encontrado.
+
+  /usuarios/me/metricas:
+    get:
+      summary: Listar metricas del perfil
+      tags: [Perfil]
+      description: Metricas de participacion, ofertas, importes y categorias.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista las metricas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsuarioMetricas"
+        "401":
+          description: No autorizado.
+
+  /usuarios/me/multas:
+    get:
+      summary: Listar multas activas
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Multas del usuario.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Multa"
+        "401":
+          description: No autorizado.
+
+  /usuarios/me/multas/pagar:
+    post:
+      summary: Pagar multa
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MultaPagoRequest"
+      responses:
+        "200":
+          description: Multa pagada.
+        "400":
+          description: Medio de pago invalido.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Multa no encontrada.
+
+  /usuarios/me/notificaciones:
+    get:
+      summary: Listar notificaciones del usuario
+      tags: [Notificaciones]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notificaciones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notificacion"
+        "401":
+          description: No autorizado.
+
+  /usuarios/me/notificaciones/{id}/leer:
+    post:
+      summary: Marcar notificacion como leida
+      tags: [Notificaciones]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notificacion marcada como leida.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Notificacion no encontrada.
+
+  # ----------------------------------------
+  # CONSIGNACION DE ARTICULOS
+  # ----------------------------------------
+  /articulos:
+    post:
+      summary: Publicar un articulo para subasta
+      tags: [Subastas]
+      description: |
+        Permite a un usuario solicitar la inclusion de un articulo en futuras subastas.
+        Queda en estado pendiente hasta ser evaluado por la empresa.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ArticuloInput"
+      responses:
+        "201":
+          description: Articulo enviado para revision.
+        "400":
+          description: Error de validacion.
+        "401":
+          description: No autorizado.
+        "403":
+          description: El usuario no esta aprobado por la empresa o se encuentra bloqueado.
+
+  /articulos/mis-publicaciones:
+    get:
+      summary: Listar articulos publicados por el usuario
+      tags: [Perfil]
+      description: Incluye estado (pendiente, aprobado, rechazado).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de articulos del usuario.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Articulo"
+        "401":
+          description: No autorizado.
+
+  /articulos/{id}:
+    get:
+      summary: Ver detalle de un articulo
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle del articulo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Articulo"
+        "401":
+          description: No autorizado.
+        "403":
+          description: El articulo no pertenece al usuario autenticado.
+        "404":
+          description: Articulo no encontrado.
+
+  /articulos/{id}/aceptar-tasacion:
+    post:
+      summary: Aceptar o rechazar condiciones de subasta
+      tags: [Subastas]
+      description: Acepta o rechaza precio base, comision y condiciones.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acepta]
+              properties:
+                acepta:
+                  type: boolean
+      responses:
+        "200":
+          description: Decision registrada correctamente.
+        "400":
+          description: Estado invalido (ya aceptado).
+        "401":
+          description: No autorizado.
+        "404":
+          description: Articulo no encontrado.
+
+  /articulos/{id}/seguro/aumentar:
+    post:
+      summary: Solicitar aumento de cobertura del seguro
+      tags: [Perfil]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeguroAumentoRequest"
+      responses:
+        "200":
+          description: Solicitud registrada.
+        "400":
+          description: Monto invalido.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Articulo no encontrado.
+
+    # ----------------------------------------
+  # SUBASTAS Y CATALOGOS
+  # ----------------------------------------
+  /subastas/publicas:
+    get:
+      summary: Listar subastas publicas
+      tags: [Subastas]
+      description: Retorna subastas abiertas sin necesidad de login.
+      responses:
+        "200":
+          description: Listado de subastas publicas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubastaListadoPublico"
+
+  /subastas/publicas/{id}:
+    get:
+      summary: Ver detalle publico de subasta
+      tags: [Subastas]
+      description: El catalogo no expone el precio base.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle publico.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubastaDetallePublica"
+        "404":
+          description: Subasta no encontrada.
+
+  /subastas:
+    get:
+      summary: Listar subastas disponibles
+      tags: [Subastas]
+      description: Retorna las subastas abiertas para usuarios autenticados.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Listado de subastas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubastaListado"
+        "401":
+          description: No autorizado.
+
+  /subastas/{id}:
+    get:
+      summary: Ver detalle de subasta y su catalogo
+      tags: [Subastas]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID de la subasta.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Detalle de la subasta y los items del catalogo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubastaDetalle"
+        "401":
+          description: No autorizado.
+        "404":
+          description: Subasta no encontrada.
+
+  /subastas/{id}/join:
+    post:
+      summary: Unirse a una subasta
+      tags: [Subastas]
+      description: Valida categoria, medio de pago verificado y ausencia de otra subasta activa.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Sesion creada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SesionSubasta"
+        "401":
+          description: No autorizado.
+        "403":
+          description: Categoria insuficiente o medio de pago no valido.
+        "409":
+          description: El usuario ya esta conectado a otra subasta.
+    delete:
+      summary: Salir de una subasta
+      tags: [Subastas]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Sesion finalizada.
+        "401":
+          description: No autorizado.
+        "404":
+          description: Subasta o sesion activa no encontrada.
+
+  /subastas/{id}/stream:
+    get:
+      summary: Stream de eventos en tiempo real
+      tags: [Streaming]
+      description: Flujo SSE con cambios de pujas e items.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Stream en tiempo real.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/StreamEvent"
+        "401":
+          description: No autorizado.
+        "403":
+          description: El usuario no tiene un medio de pago verificado o no cumple los requisitos.
+
+  /subastas/{id}/historial:
+    get:
+      summary: Ver historial de pujas de una subasta
+      tags: [Subastas]
+      description: Devuelve el historial completo, ordenado cronologicamente.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID de la subasta.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Historial de pujas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Puja"
+        "401":
+          description: No autorizado.
+        "404":
+          description: Subasta no encontrada.
+
+  /subastas/{id}/pagos:
+    get:
+      summary: Obtener resumen de pago del usuario en la subasta
+      tags: [Subastas]
+      description: Devuelve el detalle del pago correspondiente a las compras realizadas.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Detalle del pago.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pago"
+        "401":
+          description: No autorizado.
+        "404":
+          description: Subasta no encontrada o el usuario no tiene pagos en esta subasta.
+    post:
+      summary: Confirmar pago de subasta
+      tags: [Subastas]
+      description: Confirma el pago con un medio registrado y modo de entrega.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PagoRequest"
+      responses:
+        "200":
+          description: Pago realizado correctamente.
+        "400":
+          description: Fondos insuficientes o moneda invalida.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado para realizar este pago.
+        "404":
+          description: Subasta no encontrada.
+        "409":
+          description: El usuario posee multa activa.
+
+  /subastas/{id}/cerrar:
+    post:
+      summary: Cerrar subasta
+      tags: [Administracion]
+      description: |
+        Finaliza la subasta y determina ganadores. Si no hay pujas,
+        la empresa compra al precio base.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subasta cerrada correctamente.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo empresa/admin).
+        "404":
+          description: Subasta no encontrada.
+
+    # ----------------------------------------
+    # MOTOR DE PUJAS
+    # ----------------------------------------
+  /subastas/{id}/items/{itemId}/pujar:
+    post:
+      summary: Realizar una puja por un item
+      tags: [Motor de Pujas]
+      description: |
+        Registra una oferta. El sistema valida
+        1. Medio de pago verificado.
+        2. Categoria del usuario >= categoria de la subasta.
+        3. Puja mayor a la ultima oferta.
+        4. Incremento minimo (+1% del valor base) y maximo (+20%), salvo oro/platino.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID de la subasta.
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID del item en el catalogo.
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Evita pujas duplicadas ante reintentos.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PujaRequest"
+      responses:
+        "201":
+          description: Puja aceptada y registrada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PujaResponse"
+        "400":
+          description: Puja fuera de limites o menor a la oferta actual.
+        "401":
+          description: No autorizado.
+        "403":
+          description: Categoria insuficiente o medio de pago invalido.
+        "404":
+          description: Subasta o item no encontrado.
+        "409":
+          description: Otra puja en proceso. Reintentar.
+
+  # ----------------------------------------
+  # STREAMING
+  # ----------------------------------------
+
+  # ----------------------------------------
+  # ADMINISTRACION
+  # ----------------------------------------
+  /admin/usuarios/{id}/verificar:
+    post:
+      summary: Aprobar o rechazar usuario
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsuarioVerificacion"
+      responses:
+        "200":
+          description: Usuario verificado.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+        "404":
+          description: Usuario no encontrado.
+
+  /admin/medios-pago/{id}/verificar:
+    post:
+      summary: Verificar medio de pago
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MedioPagoVerificacion"
+      responses:
+        "200":
+          description: Medio de pago verificado.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+        "404":
+          description: Medio de pago no encontrado.
+
+  /admin/articulos/{id}/evaluar:
+    post:
+      summary: Evaluar articulo consignado
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticuloEvaluacion"
+      responses:
+        "200":
+          description: Evaluacion registrada.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+        "404":
+          description: Articulo no encontrado.
+
+  /admin/subastas:
+    post:
+      summary: Crear subasta
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubastaCreate"
+      responses:
+        "201":
+          description: Subasta creada.
+        "400":
+          description: Error de validacion en los datos de la subasta.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+
+  /admin/subastas/{id}/catalogo/items:
+    post:
+      summary: Agregar item al catalogo
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatalogoItemInput"
+      responses:
+        "201":
+          description: Item agregado al catalogo.
+        "400":
+          description: Error de validacion en los datos del item.
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+        "404":
+          description: Subasta no encontrada.
+
+# ----------------------------------------
+# COMPONENTES (ESQUEMAS)
+# ----------------------------------------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Categoria:
+      type: string
+      enum: [comun, especial, plata, oro, platino]
+
+    Moneda:
+      type: string
+      enum: [ARS, USD]
+
+    RegistroPaso1:
+      type: object
+      required:
+        [
+          documento,
+          nombre,
+          apellido,
+          email,
+          direccion,
+          numeroPais,
+          fotoFrente,
+          fotoDorso,
+        ]
+      properties:
+        documento:
+          type: string
+          example: "35123456"
+        nombre:
+          type: string
+          example: "Juan"
+        apellido:
+          type: string
+          example: "Perez"
+        email:
+          type: string
+          format: email
+          example: "juan.perez@email.com"
+        telefono:
+          type: string
+          example: "+54 11 5555-5555"
+        direccion:
+          type: string
+          example: "Av. Corrientes 1234, CABA"
+        numeroPais:
+          type: integer
+          example: 1
+        fotoFrente:
+          type: string
+          format: binary
+        fotoDorso:
+          type: string
+          format: binary
+
+    RegistroPaso2:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          description: Token recibido por email
+        password:
+          type: string
+          format: password
+
+    VerifyEmail:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    ForgotPassword:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPassword:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          format: password
+
+    Login:
+      type: object
+      required: [documento, password]
+      properties:
+        documento:
+          type: string
+          example: "35123456"
+        password:
+          type: string
+          format: password
+          example: "MiClaveSecreta123"
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          example: "bearer"
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        documento:
+          type: string
+        nombre:
+          type: string
+        apellido:
+          type: string
+        email:
+          type: string
+          format: email
+        direccion:
+          type: string
+        foto:
+          type: string
+          format: uri
+          example: "https://storage.example.com/users/35123456/photo.jpg"
+        numeroPais:
+          type: integer
+        admitido:
+          type: string
+          enum: [si, no]
+        estadoRegistro:
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+        categoria:
+          $ref: "#/components/schemas/Categoria"
+        multaActiva:
+          type: boolean
+          description: Si el usuario tiene una multa del 10% sin pagar.
+        bloqueado:
+          type: boolean
+          description: Si el usuario quedo bloqueado por incumplimiento.
+
+    UsuarioUpdate:
+      type: object
+      properties:
+        nombre:
+          type: string
+        apellido:
+          type: string
+        direccion:
+          type: string
+        telefono:
+          type: string
+        foto:
+          type: string
+          format: binary
+
+    UsuarioVerificacion:
+      type: object
+      required: [admitido]
+      properties:
+        admitido:
+          type: boolean
+        categoria:
+          $ref: "#/components/schemas/Categoria"
+        motivoRechazo:
+          type: string
+
+    UsuarioMetricas:
+      type: object
+      properties:
+        totalSubastasParticipadas:
+          type: integer
+          example: 15
+        totalSubastasGanadas:
+          type: integer
+          example: 4
+        porcentajeExito:
+          type: number
+          format: float
+          example: 26.6
+        totalPujasRealizadas:
+          type: integer
+          example: 120
+        montoTotalOfertado:
+          type: number
+          format: float
+          example: 350000.50
+        montoTotalPagado:
+          type: number
+          format: float
+          example: 120000.00
+        categoriasParticipadas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Categoria"
+        ultimaParticipacion:
+          type: string
+          format: date-time
+
+    MedioPago:
+      type: object
+      properties:
+        id:
+          type: integer
+        tipo:
+          type: string
+          enum: [tarjeta_credito, cuenta_bancaria, cheque_certificado]
+        ultimos_digitos:
+          type: string
+          example: "4321"
+        estadoVerificacion:
+          type: string
+          enum: [pendiente, validado, rechazado]
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        limiteReservado:
+          type: number
+          format: float
+          example: 50000.00
+        paisBanco:
+          type: string
+          example: "AR"
+        esCuentaReceptora:
+          type: boolean
+          description: Indica si esta cuenta se usa para recibir pagos.
+
+    MedioPagoInput:
+      type: object
+      required: [tipo, datos_encriptados, moneda]
+      properties:
+        tipo:
+          type: string
+          enum: [tarjeta_credito, cuenta_bancaria, cheque_certificado]
+        datos_encriptados:
+          type: string
+          description: Token generado por la pasarela de pagos.
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        limiteReservado:
+          type: number
+          format: float
+        paisBanco:
+          type: string
+        esCuentaReceptora:
+          type: boolean
+
+    MedioPagoUpdate:
+      type: object
+      properties:
+        limiteReservado:
+          type: number
+          format: float
+        esCuentaReceptora:
+          type: boolean
+
+    MedioPagoVerificacion:
+      type: object
+      required: [estadoVerificacion]
+      properties:
+        estadoVerificacion:
+          type: string
+          enum: [validado, rechazado]
+
+    Multa:
+      type: object
+      properties:
+        id:
+          type: integer
+        importe:
+          type: number
+          format: float
+        estado:
+          type: string
+          enum: [pendiente, pagada]
+        fechaLimite:
+          type: string
+          format: date-time
+        motivo:
+          type: string
+
+    MultaPagoRequest:
+      type: object
+      required: [multaId, medioPagoId]
+      properties:
+        multaId:
+          type: integer
+        medioPagoId:
+          type: integer
+
+    Notificacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        tipo:
+          type: string
+          enum: [pago, subasta, sistema]
+        mensaje:
+          type: string
+        fechaHora:
+          type: string
+          format: date-time
+        leida:
+          type: boolean
+
+    SubastaListado:
+      type: object
+      properties:
+        id:
+          type: integer
+        fecha:
+          type: string
+          format: date
+        hora:
+          type: string
+          format: time
+        estado:
+          type: string
+          enum: [abierta, cerrada]
+        categoria:
+          $ref: "#/components/schemas/Categoria"
+        ubicacion:
+          type: string
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+
+    SubastaListadoPublico:
+      allOf:
+        - $ref: "#/components/schemas/SubastaListado"
+
+    SubastaDetalle:
+      allOf:
+        - $ref: "#/components/schemas/SubastaListado"
+        - type: object
+          properties:
+            catalogo:
+              type: array
+              items:
+                $ref: "#/components/schemas/ItemCatalogo"
+
+    SubastaDetallePublica:
+      allOf:
+        - $ref: "#/components/schemas/SubastaListadoPublico"
+        - type: object
+          properties:
+            catalogo:
+              type: array
+              items:
+                $ref: "#/components/schemas/ItemCatalogoPublico"
+
+    ItemCatalogo:
+      type: object
+      properties:
+        id:
+          type: integer
+        descripcion:
+          type: string
+          example: "Juego de Te de 18 piezas antiguo"
+        precioBase:
+          type: number
+          format: float
+          description: Solo visible si el usuario cumple los requisitos.
+        mejorOfertaActual:
+          type: number
+          format: float
+        limiteMinimo:
+          type: number
+          format: float
+          description: Mejor oferta + 1% del valor base (si aplica).
+        limiteMaximo:
+          type: number
+          format: float
+          description: Mejor oferta + 20% del valor base (si aplica).
+        subastado:
+          type: string
+          enum: [si, no]
+        fotos:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    ItemCatalogoPublico:
+      type: object
+      properties:
+        id:
+          type: integer
+        descripcion:
+          type: string
+        mejorOfertaActual:
+          type: number
+          format: float
+        subastado:
+          type: string
+          enum: [si, no]
+        fotos:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    PujaRequest:
+      type: object
+      required: [importe]
+      properties:
+        importe:
+          type: number
+          format: float
+          example: 15150.00
+          description: Monto de la oferta realizada.
+
+    PujaResponse:
+      type: object
+      properties:
+        pujaId:
+          type: integer
+        mejorOfertaActual:
+          type: number
+          format: float
+        limiteMinimo:
+          type: number
+          format: float
+        limiteMaximo:
+          type: number
+          format: float
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        esGanadoraParcial:
+          type: boolean
+
+    Puja:
+      type: object
+      properties:
+        id:
+          type: integer
+        usuarioId:
+          type: integer
+          description: ID del usuario que realizo la puja
+        itemId:
+          type: integer
+          description: ID del item subastado
+        importe:
+          type: number
+          format: float
+          example: 15200.50
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        fechaHora:
+          type: string
+          format: date-time
+          example: "2026-04-27T21:30:00Z"
+        esGanadoraParcial:
+          type: boolean
+          description: Indica si esta puja fue la mejor en ese momento
+
+    Pago:
+      type: object
+      properties:
+        id:
+          type: integer
+        subastaId:
+          type: integer
+        usuarioId:
+          type: integer
+        totalPujado:
+          type: number
+          format: float
+        comision:
+          type: number
+          format: float
+        costoEnvio:
+          type: number
+          format: float
+        totalFinal:
+          type: number
+          format: float
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        modoEntrega:
+          type: string
+          enum: [envio, retiro]
+        estado:
+          type: string
+          enum: [pendiente, pagado, vencido]
+        fechaLimitePago:
+          type: string
+          format: date-time
+
+    PagoRequest:
+      type: object
+      required: [medioPagoId, modoEntrega]
+      properties:
+        medioPagoId:
+          type: integer
+        modoEntrega:
+          type: string
+          enum: [envio, retiro]
+        direccionEnvio:
+          type: string
+        aceptaPerderSeguro:
+          type: boolean
+
+    SesionSubasta:
+      type: object
+      properties:
+        id:
+          type: integer
+        subastaId:
+          type: integer
+        usuarioId:
+          type: integer
+        estado:
+          type: string
+          enum: [activa, finalizada]
+        fechaHoraInicio:
+          type: string
+          format: date-time
+
+    StreamEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [puja, item]
+        fechaHora:
+          type: string
+          format: date-time
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/Puja"
+            - $ref: "#/components/schemas/ItemCatalogo"
+
+    ArticuloInput:
+      type: object
+      required: [descripcion, fotos, esPropietario, declaraOrigenLicito]
+      properties:
+        descripcion:
+          type: string
+          example: "Reloj antiguo del siglo XIX"
+        historia:
+          type: string
+          description: Informacion historica o contexto del objeto
+        artista:
+          type: string
+          description: Nombre del artista o disenador
+        fechaCreacion:
+          type: string
+          format: date
+        fotos:
+          type: array
+          minItems: 6
+          items:
+            type: string
+            format: binary
+        documentacionOrigen:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Documentacion que acredita el origen del articulo
+        esPropietario:
+          type: boolean
+          description: Declaracion de propiedad del bien
+        declaraOrigenLicito:
+          type: boolean
+          description: Declaracion de origen licito
+
+    Articulo:
+      type: object
+      properties:
+        id:
+          type: integer
+        descripcion:
+          type: string
+        precioBasePropuesto:
+          type: number
+          format: float
+        comisionPropuesta:
+          type: number
+          format: float
+        tasacionAceptada:
+          type: boolean
+          nullable: true
+        historia:
+          type: string
+        artista:
+          type: string
+        fechaCreacion:
+          type: string
+          format: date
+        estado:
+          type: string
+          enum: [pendiente, en_inspeccion, aprobado, rechazado, devuelto]
+        motivoRechazo:
+          type: string
+          nullable: true
+        fechaEnvio:
+          type: string
+          format: date-time
+        fotos:
+          type: array
+          items:
+            type: string
+            format: uri
+        ubicacion:
+          type: string
+          example: "Deposito CABA"
+        seguro:
+          $ref: "#/components/schemas/Seguro"
+
+    ArticuloEvaluacion:
+      type: object
+      required: [estado]
+      properties:
+        estado:
+          type: string
+          enum: [aprobado, rechazado]
+        motivoRechazo:
+          type: string
+        precioBasePropuesto:
+          type: number
+          format: float
+        comisionPropuesta:
+          type: number
+          format: float
+        subastaSugeridaId:
+          type: integer
+
+    Seguro:
+      type: object
+      properties:
+        poliza:
+          type: string
+          example: "POL-123456"
+        compania:
+          type: string
+        montoAsegurado:
+          type: number
+          format: float
+          example: 50000
+
+    SeguroAumentoRequest:
+      type: object
+      required: [montoNuevo]
+      properties:
+        montoNuevo:
+          type: number
+          format: float
+
+    SubastaCreate:
+      type: object
+      required: [fecha, hora, categoria, moneda]
+      properties:
+        fecha:
+          type: string
+          format: date
+        hora:
+          type: string
+          format: time
+        categoria:
+          $ref: "#/components/schemas/Categoria"
+        moneda:
+          $ref: "#/components/schemas/Moneda"
+        subastadorId:
+          type: integer
+        ubicacion:
+          type: string
+        capacidadAsistentes:
+          type: integer
+        tieneDeposito:
+          type: boolean
+        seguridadPropia:
+          type: boolean
+
+    CatalogoItemInput:
+      type: object
+      required: [precioBase, comision]
+      properties:
+        productoId:
+          type: integer
+        articuloId:
+          type: integer
+        precioBase:
+          type: number
+          format: float
+        comision:
+          type: number
+          format: float
