@@ -1001,10 +1001,10 @@ components:
           example: 1
         fotoFrente:
           type: string
-          format: binary
+          format: uri
         fotoDorso:
           type: string
-          format: binary
+          format: uri
 
     RegistroPaso2:
       type: object
@@ -1114,7 +1114,7 @@ components:
           type: string
         foto:
           type: string
-          format: binary
+          format: uri
 
     UsuarioVerificacion:
       type: object
@@ -1513,12 +1513,12 @@ components:
           minItems: 6
           items:
             type: string
-            format: binary
+            format: uri
         documentacionOrigen:
           type: array
           items:
             type: string
-            format: binary
+            format: uri
           description: Documentacion que acredita el origen del articulo
         esPropietario:
           type: boolean
