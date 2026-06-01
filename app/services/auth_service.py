@@ -18,14 +18,16 @@ class AuthService:
                 p.identificador as usuario_id,
                 p.documento,
                 p.nombre,
-                p.password_hash,
+                pa.password_hash,
                 c.admitido,
                 c.categoria,
-                c."estadoRegistro",
-                c.bloqueado,
-                c."multaActiva"
+                ca.estado_registro as "estadoRegistro",
+                ca.bloqueado,
+                ca.multa_activa as "multaActiva"
             FROM personas p
+            LEFT JOIN personas_adicionales pa ON p.identificador = pa.identificador
             JOIN clientes c ON p.identificador = c.identificador
+            LEFT JOIN clientes_adicionales ca ON c.identificador = ca.identificador
             WHERE p.documento = %s
         """
 
