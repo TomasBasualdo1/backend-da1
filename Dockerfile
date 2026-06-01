@@ -1,26 +1,15 @@
 # 1. Usar una imagen oficial y liviana de Python 3.12
 FROM python:3.12-slim
 
-# 2. Configurar variables de entorno para evitar prompts interactivos y aceptar términos
+# 2. Configurar variables de entorno
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ACCEPT_EULA=Y
 
-# 3. Instalar herramientas del sistema necesarias para compilar y descargar
+# 3. Instalar herramientas básicas
 RUN apt-get update && apt-get install -y \
     curl \
-    gnupg \
-    build-essential \
-    unixodbc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 4. Agregar la clave y el repositorio oficial de Microsoft para Debian 12 (Bookworm)
-RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
-    && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list
-
-# 5. Instalar el driver ODBC 18 para SQL Server
-RUN apt-get update && apt-get install -y msodbcsql18 && rm -rf /var/lib/apt/lists/*
-
-# 6. Establecer el directorio de trabajo dentro del contenedor
+# 4. Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
 # 7. Copiar el archivo de dependencias e instalarlas
