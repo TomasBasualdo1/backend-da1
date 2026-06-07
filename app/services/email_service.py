@@ -1,8 +1,11 @@
+import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -35,7 +38,19 @@ class EmailService:
         msg.attach(MIMEText(text, "plain"))
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-            server.starttls()
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(settings.smtp_user, to_email, msg.as_string())
+        try:
+            logger.info("Enviando email a %s via %s:%s", to_email, settings.smtp_host, settings.smtp_port)
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                server.starttls()
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_user, to_email, msg.as_string())
+            logger.info("Email enviado exitosamente a %s", to_email)
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error("Error de autenticacion SMTP (revisar SMTP_USER y SMTP_PASSWORD en .env): %s", e)
+            raise
+        except smtplib.SMTPException as e:
+            logger.error("Error SMTP al enviar email a %s: %s", to_email, e)
+            raise
+        except Exception as e:
+            logger.error("Error inesperado al enviar email a %s: %s", to_email, e)
+            raise
