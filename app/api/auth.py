@@ -81,7 +81,14 @@ async def registro_paso1(
     )
 
     result = UsuarioRepository.aprobar_registro(db, persona_id)
-    EmailService.send_verification_email(result["email"], result["token"])
+    try:
+        EmailService.send_verification_email(result["email"], result["token"])
+    except Exception as e:
+        print(f"Error sending verification email: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Usuario registrado pero falló el envío del email de verificación: {str(e)}"
+        )
 
 
 @router.post("/registro/paso2", status_code=201)
