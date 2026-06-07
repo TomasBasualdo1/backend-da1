@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends
 from psycopg import Connection
 
 from app.dependencies import get_current_user, get_db
+from app.repositories.usuario_repo import UsuarioRepository
+from app.services.email_service import EmailService
 
 router = APIRouter(prefix="/admin")
 
@@ -12,7 +14,9 @@ async def verify_user(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    result = UsuarioRepository.aprobar_registro(db, id)
+    EmailService.send_verification_email(result["email"], result["token"])
+    return {"message": "Usuario aprobado. Se envió el email de verificación."}
 
 
 @router.post("/medios-pago/{id}/verificar")

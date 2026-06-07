@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from psycopg import Connection
 from pydantic import BaseModel
@@ -7,6 +8,9 @@ from datetime import datetime, timezone
 from app.core.security import create_access_token, decode_access_token
 from app.dependencies import get_db, security, get_current_user
 from app.services.auth_service import AuthService
+from app.services.email_service import EmailService
+from app.services.storage_service import StorageService
+from app.repositories.usuario_repo import UsuarioRepository
 
 router = APIRouter(prefix="/auth")
 
@@ -27,17 +31,65 @@ class LogoutResponse(BaseModel):
     message: str = "Successfully logged out"
 
 
+class RegistroPaso2Request(BaseModel):
+    token: str
+    password: str
+
+
 # --- Endpoints ---
 
 
 @router.post("/registro/paso1", status_code=201)
-async def registro_paso1():
-    pass
+async def registro_paso1(
+    documento: str = Form(...),
+    nombre: str = Form(...),
+    apellido: str = Form(...),
+    email: str = Form(...),
+    direccion: str = Form(...),
+    numeroPais: int = Form(...),
+    telefono: Optional[str] = Form(None),
+    fotoFrente: UploadFile = File(...),
+    fotoDorso: UploadFile = File(...),
+    db: Connection = Depends(get_db),
+):
+    UsuarioRepository.check_duplicate(db, documento, email)
+
+    frente_bytes = await fotoFrente.read()
+    dorso_bytes = await fotoDorso.read()
+
+    foto_frente_url = StorageService.upload_file(
+        frente_bytes,
+        f"dni/{documento}/frente.jpg",
+        fotoFrente.content_type or "image/jpeg",
+    )
+    foto_dorso_url = StorageService.upload_file(
+        dorso_bytes,
+        f"dni/{documento}/dorso.jpg",
+        fotoDorso.content_type or "image/jpeg",
+    )
+
+    persona_id = UsuarioRepository.create_cliente_pendiente(
+        db=db,
+        nombre_completo=f"{nombre} {apellido}",
+        documento=documento,
+        email=email,
+        direccion=direccion,
+        numeropais=numeroPais,
+        telefono=telefono,
+        foto_frente_url=foto_frente_url,
+        foto_dorso_url=foto_dorso_url,
+    )
+
+    result = UsuarioRepository.aprobar_registro(db, persona_id)
+    EmailService.send_verification_email(result["email"], result["token"])
 
 
 @router.post("/registro/paso2", status_code=201)
-async def registro_paso2():
-    pass
+async def registro_paso2(
+    body: RegistroPaso2Request,
+    db: Connection = Depends(get_db),
+):
+    UsuarioRepository.set_password_from_token(db, body.token, body.password)
 
 
 @router.post("/login", response_model=TokenResponse)
