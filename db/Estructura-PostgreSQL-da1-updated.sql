@@ -164,6 +164,7 @@ CREATE TABLE public.personas_adicionales (
   foto_dorso character varying,
   telefono character varying,
   token_email character varying,
+  foto_url character varying,
   CONSTRAINT personas_adicionales_pkey PRIMARY KEY (identificador),
   CONSTRAINT fk_personas_adicionales_personas FOREIGN KEY (identificador) REFERENCES public.personas(identificador)
 );

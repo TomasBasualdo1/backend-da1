@@ -16,4 +16,4 @@
 
 - `/frontend-da1`: Código React Native.
 - `/backend-da1`: Endpoints, modelos, servicios FastAPI.
-- `/context`: Documentación SDD, specs, swagger y txt con la consigna (documento fundamental que inidca los requisitos del proyecto a realizar).
+- `/context`: Documentación SDD, specs, swagger y .md con la consigna (documento fundamental que inidca los requisitos del proyecto a realizar).
