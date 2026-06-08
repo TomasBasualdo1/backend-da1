@@ -133,6 +133,18 @@ async def update_profile(
     return {"message": "Perfil actualizado correctamente"}
 
 
+@router.delete("/me/foto")
+async def delete_profile_picture(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["usuarioId"]
+    with db.cursor() as cursor:
+        cursor.execute("UPDATE personas_adicionales SET foto_url = NULL WHERE identificador = %s", (user_id,))
+    db.commit()
+    return {"message": "Foto de perfil eliminada correctamente"}
+
+
 @router.get("/me/medios-pago", response_model=list[MedioPago])
 async def list_payment_methods(
     db: Connection = Depends(get_db),
