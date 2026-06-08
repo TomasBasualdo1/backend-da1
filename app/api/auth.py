@@ -84,7 +84,8 @@ async def registro_paso1(
     try:
         EmailService.send_verification_email(result["email"], result["token"])
     except Exception as e:
-        print(f"Error sending verification email: {e}")
+        print(f"Error sending verification email to {result['email']}: {e}")
+        print(f"FALLBACK DEBUG: Verification token for {result['email']} is: {result['token']}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Usuario registrado pero falló el envío del email de verificación: {str(e)}"
