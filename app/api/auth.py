@@ -34,6 +34,11 @@ class LogoutResponse(BaseModel):
 class RegistroPaso2Request(BaseModel):
     token: str
     password: str
+    paymentTipo: Optional[str] = None
+    paymentDatos: Optional[str] = None
+    paymentMoneda: Optional[str] = None
+    paymentLimite: Optional[float] = None
+    paymentPais: Optional[str] = None
 
 
 # --- Endpoints ---
@@ -97,7 +102,45 @@ async def registro_paso2(
     body: RegistroPaso2Request,
     db: Connection = Depends(get_db),
 ):
+    with db.cursor() as cursor:
+        cursor.execute(
+            "SELECT identificador FROM personas_adicionales WHERE token_email = %s",
+            (body.token,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Token no encontrado")
+        user_id = row["identificador"]
+
     UsuarioRepository.set_password_from_token(db, body.token, body.password)
+
+    if body.paymentTipo and body.paymentDatos and body.paymentMoneda:
+        ultimos_digitos = "4321"
+        digits = [c for c in body.paymentDatos if c.isdigit()]
+        if len(digits) >= 4:
+            ultimos_digitos = "".join(digits[-4:])
+        else:
+            ultimos_digitos = body.paymentDatos[-4:]
+
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO medios_pago (
+                    cliente_id, tipo, datos_encriptados, ultimos_digitos,
+                    estado_verificacion, moneda, limite_reservado, pais_banco, es_cuenta_receptora
+                ) VALUES (%s, %s, %s, %s, 'pendiente', %s, %s, %s, false)
+                """,
+                (
+                    user_id,
+                    body.paymentTipo,
+                    body.paymentDatos,
+                    ultimos_digitos,
+                    body.paymentMoneda,
+                    body.paymentLimite or 0.00,
+                    body.paymentPais,
+                ),
+            )
+        db.commit()
 
 
 @router.post("/login", response_model=TokenResponse)
