@@ -1,39 +1,52 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, HTTPException
 from psycopg import Connection
 
 from app.dependencies import get_current_user, get_db
+from app.services.subasta_service import SubastaService
+from app.schemas.schemas import SubastaListado, SubastaListadoPublico, SubastaDetalle, SubastaDetallePublica
 
 router = APIRouter(prefix="/subastas")
 
 
-@router.get("/publicas")
+@router.get("/publicas", response_model=list[SubastaListadoPublico])
 async def list_public_auctions(db: Connection = Depends(get_db)):
-    pass
+    return SubastaService.get_publicas(db)
 
 
-@router.get("/publicas/{id}")
+@router.get("/publicas/{id}", response_model=SubastaDetallePublica)
 async def get_public_auction_detail(
     id: int,
+    request: Request,
     db: Connection = Depends(get_db),
 ):
-    pass
+    base_url = str(request.base_url).rstrip("/")
+    subasta = SubastaService.get_publica_detalle(db, id, base_url)
+    if not subasta:
+        raise HTTPException(status_code=404, detail="Subasta no encontrada")
+    return subasta
 
 
-@router.get("")
+@router.get("", response_model=list[SubastaListado])
 async def list_auctions(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return SubastaService.get_todas(db)
 
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=SubastaDetalle)
 async def get_auction_detail(
     id: int,
+    request: Request,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    base_url = str(request.base_url).rstrip("/")
+    subasta = SubastaService.get_detalle(db, id, base_url)
+    if not subasta:
+        raise HTTPException(status_code=404, detail="Subasta no encontrada")
+    return subasta
+
 
 
 @router.post("/{id}/join", status_code=201)

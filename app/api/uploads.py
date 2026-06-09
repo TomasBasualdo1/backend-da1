@@ -3,10 +3,12 @@ import uuid
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel
+from psycopg import Connection
 
 from app.config import settings
+from app.dependencies import get_db
 
 router = APIRouter(prefix="/uploads")
 
@@ -68,3 +70,13 @@ async def presign_upload(payload: PresignRequest):
         "public_url": public_url,
         "path": path,
     }
+
+
+@router.get("/fotos/{id}")
+async def get_foto(id: int, db: Connection = Depends(get_db)):
+    with db.cursor() as cursor:
+        cursor.execute("SELECT foto FROM fotos WHERE identificador = %s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Foto no encontrada")
+        return Response(content=row["foto"], media_type="image/png")
