@@ -68,7 +68,7 @@ class TokenResponse(BaseModel):
 
 class Admitido(Enum):
     si = 'si'
-    False_ = False
+    no = 'no'
 
 
 class EstadoRegistro(Enum):
@@ -84,6 +84,7 @@ class Usuario(BaseModel):
     apellido: Optional[str] = None
     email: Optional[EmailStr] = None
     direccion: Optional[str] = None
+    telefono: Optional[str] = None
     foto: Optional[AnyUrl] = Field(
         None, example='https://storage.example.com/users/35123456/photo.jpg'
     )
