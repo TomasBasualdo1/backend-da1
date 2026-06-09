@@ -54,8 +54,8 @@ class SubastaRepository:
                     (SELECT MAX(importe) FROM pujos WHERE item = ic.identificador) AS "mejorOfertaActual",
                     ic.subastado,
                     (
-                        SELECT COALESCE(jsonb_agg(f.identificador), '[]'::jsonb)
-                        FROM fotos f
+                        SELECT COALESCE(jsonb_agg(f.foto_url), '[]'::jsonb)
+                        FROM fotos_adicionales f
                         WHERE f.producto = ic.producto
                     ) AS fotos
                 FROM itemscatalogo ic
@@ -74,8 +74,7 @@ class SubastaRepository:
                 # Convert 'no' to False for Pydantic enum validation consistency
                 item["subastado"] = "si" if item.get("subastado") == "si" else False
                 
-                photo_ids = item.get("fotos") or []
-                item["fotos"] = [f"{base_url}/uploads/fotos/{fid}" for fid in photo_ids]
+                item["fotos"] = item.get("fotos") or []
 
             subasta["catalogo"] = catalog_rows
             return subasta
@@ -111,8 +110,8 @@ class SubastaRepository:
                     (SELECT MAX(importe) FROM pujos WHERE item = ic.identificador) AS "mejorOfertaActual",
                     ic.subastado,
                     (
-                        SELECT COALESCE(jsonb_agg(f.identificador), '[]'::jsonb)
-                        FROM fotos f
+                        SELECT COALESCE(jsonb_agg(f.foto_url), '[]'::jsonb)
+                        FROM fotos_adicionales f
                         WHERE f.producto = ic.producto
                     ) AS fotos
                 FROM itemscatalogo ic
@@ -136,8 +135,7 @@ class SubastaRepository:
                 # Convert 'no' to False for Pydantic enum validation consistency
                 item["subastado"] = "si" if item.get("subastado") == "si" else False
                 
-                photo_ids = item.get("fotos") or []
-                item["fotos"] = [f"{base_url}/uploads/fotos/{fid}" for fid in photo_ids]
+                item["fotos"] = item.get("fotos") or []
 
             subasta["catalogo"] = catalog_rows
             return subasta

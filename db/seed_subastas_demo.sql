@@ -197,6 +197,24 @@ ON CONFLICT (identificador) DO UPDATE SET
   producto = EXCLUDED.producto,
   foto = EXCLUDED.foto;
 
+INSERT INTO public.fotos_adicionales (identificador, producto, foto_url)
+VALUES
+  (900001, 900001, 'https://images.unsplash.com/photo-1509048191080-d2984bad6ae5?w=600&auto=format&fit=crop'),
+  (900002, 900002, 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop'),
+  (900003, 900003, 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop'),
+  (900004, 900004, 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?w=600&auto=format&fit=crop'),
+  (900005, 900005, 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=600&auto=format&fit=crop'),
+  (900006, 900006, 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&auto=format&fit=crop'),
+  (900007, 900007, 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=600&auto=format&fit=crop'),
+  (900008, 900008, 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=600&auto=format&fit=crop'),
+  (900009, 900009, 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600&auto=format&fit=crop'),
+  (900010, 900010, 'https://images.unsplash.com/photo-1621972750749-0fbb1abb7736?w=600&auto=format&fit=crop'),
+  (900011, 900011, 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop'),
+  (900012, 900012, 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop')
+ON CONFLICT (identificador) DO UPDATE SET
+  producto = EXCLUDED.producto,
+  foto_url = EXCLUDED.foto_url;
+
 INSERT INTO public.subastas (
   identificador, fecha, hora, estado, subastador, ubicacion,
   capacidadasistentes, tienedeposito, seguridadpropia, categoria

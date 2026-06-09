@@ -50,6 +50,9 @@ WHERE identificador BETWEEN 900001 AND 900006;
 DELETE FROM public.fotos
 WHERE identificador BETWEEN 900001 AND 900012;
 
+DELETE FROM public.fotos_adicionales
+WHERE identificador BETWEEN 900001 AND 900012;
+
 DELETE FROM public.productos
 WHERE identificador BETWEEN 900001 AND 900012;
 
