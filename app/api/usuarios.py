@@ -14,6 +14,7 @@ from app.schemas.schemas import (
     MultaPagoRequest,
 )
 from app.services.storage_service import StorageService
+from app.services.usuario_service import UsuarioService
 
 router = APIRouter(prefix="/usuarios")
 
@@ -23,59 +24,8 @@ async def get_profile(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    user_id = user["usuarioId"]
-    query = """
-        SELECT 
-            p.identificador as id,
-            p.documento,
-            p.nombre as nombre_completo,
-            p.direccion,
-            pa.email,
-            pa.telefono,
-            pa.foto_url as foto,
-            c.numeropais as "numeroPais",
-            c.admitido,
-            ca.estado_registro as "estadoRegistro",
-            c.categoria,
-            ca.multa_activa as "multaActiva",
-            ca.bloqueado
-        FROM personas p
-        JOIN personas_adicionales pa ON p.identificador = pa.identificador
-        JOIN clientes c ON p.identificador = c.identificador
-        JOIN clientes_adicionales ca ON p.identificador = ca.identificador
-        WHERE p.identificador = %s
-    """
-    with db.cursor() as cursor:
-        cursor.execute(query, (user_id,))
-        row = cursor.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    # Split the full name into nombre and apellido
-    nombre_completo = row.get("nombre_completo") or ""
-    parts = nombre_completo.split(" ", 1)
-    nombre = parts[0]
-    apellido = parts[1] if len(parts) > 1 else ""
-
-    # Map admitido string 'si'/'no' to Admitido enum values
-    db_admitido = row.get("admitido")
-    admitido = "si" if db_admitido == "si" else False
-
-    return Usuario(
-        id=row["id"],
-        documento=row["documento"],
-        nombre=nombre,
-        apellido=apellido,
-        email=row["email"],
-        direccion=row["direccion"],
-        foto=row["foto"],
-        numeroPais=row["numeroPais"],
-        admitido=admitido,
-        estadoRegistro=row["estadoRegistro"],
-        categoria=row["categoria"],
-        multaActiva=row["multaActiva"],
-        bloqueado=row["bloqueado"],
-    )
+    profile_data = UsuarioService.get_profile(db, user["usuarioId"])
+    return Usuario(**profile_data)
 
 
 @router.patch("/me")

@@ -113,3 +113,23 @@ class UsuarioRepository:
                 (get_password_hash(password), row["identificador"]),
             )
         db.commit()
+
+    @staticmethod
+    def generate_reset_token(db: Connection, email: str) -> str:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT identificador FROM personas_adicionales WHERE email = %s",
+                (email,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+            token = str(random.randint(100000, 999999))
+            cursor.execute(
+                "UPDATE personas_adicionales SET token_email = %s WHERE identificador = %s",
+                (token, row["identificador"]),
+            )
+        db.commit()
+        return token
+
