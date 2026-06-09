@@ -25,7 +25,38 @@ class EmailService:
             <p style="color: #888; font-size: 13px;">Este código es de un solo uso.</p>
         </div>
         """
+        text = (
+            f"Tu solicitud de registro fue aprobada.\n\n"
+            f"Ingresá a la app y completá tu registro usando el siguiente código:\n\n"
+            f"{token}\n\n"
+            f"Este código es de un solo uso."
+        )
+        EmailService._send_email(to_email, "Completá tu registro en el sistema de subastas", html, text)
 
+    @staticmethod
+    def send_reset_password_email(to_email: str, token: str) -> None:
+        html = f"""
+        <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
+            <h2>Recuperación de contraseña</h2>
+            <p>Usá el siguiente código para reestablecer tu contraseña:</p>
+            <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px;
+                        padding: 16px; background: #f5f5f5; border-radius: 8px;
+                        text-align: center; margin: 24px 0;">
+                {token}
+            </div>
+            <p style="color: #888; font-size: 13px;">Si no solicitaste este cambio, podés ignorar este correo.</p>
+        </div>
+        """
+        text = (
+            f"Recuperación de contraseña solicitada.\n\n"
+            f"Usá el siguiente código para reestablecer tu contraseña:\n\n"
+            f"{token}\n\n"
+            f"Si no solicitaste este cambio, podés ignorar este correo."
+        )
+        EmailService._send_email(to_email, "Recuperación de contraseña", html, text)
+
+    @staticmethod
+    def _send_email(to_email: str, subject: str, html: str, text: str) -> None:
         provider = settings.email_provider.lower().strip()
 
         if provider == "resend":
@@ -38,7 +69,7 @@ class EmailService:
             payload = {
                 "from": from_addr,
                 "to": [to_email],
-                "subject": "Completá tu registro en el sistema de subastas",
+                "subject": subject,
                 "html": html,
             }
             try:
@@ -67,7 +98,7 @@ class EmailService:
             payload = {
                 "personalizations": [{"to": [{"email": to_email}]}],
                 "from": {"email": from_addr},
-                "subject": "Completá tu registro en el sistema de subastas",
+                "subject": subject,
                 "content": [{"type": "text/html", "value": html}]
             }
             try:
@@ -89,16 +120,9 @@ class EmailService:
         else:
             # Fallback to SMTP
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = "Completá tu registro en el sistema de subastas"
+            msg["Subject"] = subject
             msg["From"] = settings.email_from or settings.smtp_user
             msg["To"] = to_email
-
-            text = (
-                f"Tu solicitud de registro fue aprobada.\n\n"
-                f"Ingresá a la app y completá tu registro usando el siguiente código:\n\n"
-                f"{token}\n\n"
-                f"Este código es de un solo uso."
-            )
 
             msg.attach(MIMEText(text, "plain"))
             msg.attach(MIMEText(html, "html"))

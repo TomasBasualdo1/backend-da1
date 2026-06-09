@@ -11,6 +11,7 @@ from app.services.auth_service import AuthService
 from app.services.email_service import EmailService
 from app.services.storage_service import StorageService
 from app.repositories.usuario_repo import UsuarioRepository
+from app.schemas.schemas import ForgotPassword, ResetPassword
 
 router = APIRouter(prefix="/auth")
 
@@ -178,10 +179,32 @@ async def verify_email():
 
 
 @router.post("/forgot-password")
-async def forgot_password():
-    pass
+async def forgot_password(
+    request: ForgotPassword,
+    db: Connection = Depends(get_db)
+):
+    try:
+        token = UsuarioRepository.generate_reset_token(db, request.email)
+        EmailService.send_reset_password_email(request.email, token)
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            pass
+        else:
+            raise e
+    except Exception as e:
+        print(f"Error sending reset email to {request.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error sending reset email"
+        )
+    return {"message": "Si el email existe, se envió un código de recuperación."}
 
 
 @router.post("/reset-password")
-async def reset_password():
-    pass
+async def reset_password(
+    request: ResetPassword,
+    db: Connection = Depends(get_db)
+):
+    plain_password = request.newPassword.get_secret_value() if hasattr(request.newPassword, 'get_secret_value') else request.newPassword
+    UsuarioRepository.set_password_from_token(db, request.token, plain_password)
+    return {"message": "Contraseña actualizada exitosamente."}
