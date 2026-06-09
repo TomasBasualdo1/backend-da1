@@ -34,5 +34,38 @@ class TestUsuariosApi(unittest.TestCase):
         )
         self.mock_db.commit.assert_called_once()
 
+    def test_get_profile_success(self):
+        self.mock_cursor.fetchone.return_value = {
+            "id": 123,
+            "documento": "12345678",
+            "nombre": "Juan Carlos Perez",
+            "email": "juan@example.com",
+            "direccion": "Av. Corrientes 1234",
+            "telefono": "+54 11 5555-5555",
+            "foto": "http://example.com/avatar.jpg",
+            "numeroPais": 1,
+            "admitido": "si",
+            "estadoRegistro": "aprobado",
+            "categoria": "comun",
+            "multaActiva": False,
+            "bloqueado": False
+        }
+        
+        response = self.client.get("/usuarios/me")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["id"], 123)
+        self.assertEqual(data["nombre"], "Juan")
+        self.assertEqual(data["apellido"], "Carlos Perez")
+        self.assertEqual(data["admitido"], "si")
+        self.assertEqual(data["telefono"], "+54 11 5555-5555")
+
+    def test_get_profile_not_found(self):
+        self.mock_cursor.fetchone.return_value = None
+        
+        response = self.client.get("/usuarios/me")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "Usuario no encontrado")
+
 if __name__ == "__main__":
     unittest.main()
