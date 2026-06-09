@@ -15,7 +15,7 @@ CREATE TABLE public.personas (
   documento character varying NOT NULL,
   nombre character varying NOT NULL,
   direccion character varying,
-  estado character varying CHECK (estado::text = ANY (ARRAY['activo'::character varying, 'inactivo'::character varying, 'incativo'::character varying]::text[])),
+  estado character varying CHECK (estado::text = ANY (ARRAY['activo'::character varying::text, 'inactivo'::character varying::text])),
   foto bytea,
   CONSTRAINT personas_pkey PRIMARY KEY (identificador)
 );
@@ -73,7 +73,7 @@ CREATE TABLE public.subastas (
   identificador integer NOT NULL DEFAULT nextval('subastas_identificador_seq'::regclass),
   fecha date CHECK (fecha > (CURRENT_DATE + '10 days'::interval)::date),
   hora time without time zone NOT NULL,
-  estado character varying CHECK (estado::text = ANY (ARRAY['abierta'::character varying, 'cerrada'::character varying, 'carrada'::character varying]::text[])),
+  estado character varying CHECK (estado::text = ANY (ARRAY['abierta'::character varying::text, 'cerrada'::character varying::text])),
   subastador integer,
   ubicacion character varying,
   capacidadasistentes integer,
@@ -270,4 +270,11 @@ CREATE TABLE public.sesiones_subasta (
   CONSTRAINT sesiones_subasta_pkey PRIMARY KEY (identificador),
   CONSTRAINT fk_sesiones_subasta_subastas FOREIGN KEY (subasta_id) REFERENCES public.subastas(identificador),
   CONSTRAINT fk_sesiones_subasta_clientes FOREIGN KEY (cliente_id) REFERENCES public.clientes(identificador)
+);
+CREATE TABLE public.fotos_adicionales (
+  identificador integer NOT NULL DEFAULT nextval('fotos_identificador_seq'::regclass),
+  producto integer NOT NULL,
+  foto_url character varying NOT NULL,
+  CONSTRAINT fotos_adicionales_pkey PRIMARY KEY (identificador),
+  CONSTRAINT fk_fotos_adicionales_productos FOREIGN KEY (producto) REFERENCES public.productos(identificador)
 );
