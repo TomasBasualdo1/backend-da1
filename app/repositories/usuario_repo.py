@@ -70,7 +70,7 @@ class UsuarioRepository:
         return persona_id
 
     @staticmethod
-    def aprobar_registro(db: Connection, usuario_id: int) -> dict:
+    def aprobar_registro(db: Connection, usuario_id: int, categoria: str | None = None) -> dict:
         with db.cursor() as cursor:
             cursor.execute(
                 "SELECT email FROM personas_adicionales WHERE identificador = %s",
@@ -82,10 +82,16 @@ class UsuarioRepository:
 
             token = str(random.randint(100000, 999999))
 
-            cursor.execute(
-                "UPDATE clientes SET admitido = 'si' WHERE identificador = %s",
-                (usuario_id,),
-            )
+            if categoria:
+                cursor.execute(
+                    "UPDATE clientes SET admitido = 'si', categoria = %s WHERE identificador = %s",
+                    (categoria, usuario_id),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE clientes SET admitido = 'si' WHERE identificador = %s",
+                    (usuario_id,),
+                )
             cursor.execute(
                 "UPDATE clientes_adicionales SET estado_registro = 'aprobado' WHERE identificador = %s",
                 (usuario_id,),
@@ -96,6 +102,32 @@ class UsuarioRepository:
             )
         db.commit()
         return {"token": token, "email": row["email"]}
+
+    @staticmethod
+    def rechazar_registro(db: Connection, usuario_id: int, motivo_rechazo: str | None = None) -> dict:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT email FROM personas_adicionales WHERE identificador = %s",
+                (usuario_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+            cursor.execute(
+                "UPDATE clientes SET admitido = 'no' WHERE identificador = %s",
+                (usuario_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE clientes_adicionales 
+                SET estado_registro = 'rechazado', motivo_rechazo = %s 
+                WHERE identificador = %s
+                """,
+                (motivo_rechazo, usuario_id),
+            )
+        db.commit()
+        return {"email": row["email"]}
 
     @staticmethod
     def set_password_from_token(db: Connection, token: str, password: str) -> None:

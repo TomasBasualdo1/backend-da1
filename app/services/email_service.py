@@ -56,6 +56,27 @@ class EmailService:
         EmailService._send_email(to_email, "Recuperación de contraseña", html, text)
 
     @staticmethod
+    def send_rejection_email(to_email: str, reason: str) -> None:
+        html = f"""
+        <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
+            <h2 style="color: #d32f2f;">Tu registro no pudo ser aprobado</h2>
+            <p>Lamentamos informarte que tu solicitud de registro ha sido rechazada.</p>
+            <p><strong>Motivo del rechazo:</strong></p>
+            <div style="padding: 16px; background: #ffebee; border-left: 4px solid #ef5350; border-radius: 4px; margin: 24px 0; color: #c62828;">
+                {reason}
+            </div>
+            <p style="color: #888; font-size: 13px;">Si tenés alguna duda, por favor ponete en contacto con soporte.</p>
+        </div>
+        """
+        text = (
+            f"Tu solicitud de registro ha sido rechazada.\n\n"
+            f"Motivo del rechazo:\n"
+            f"{reason}\n\n"
+            f"Si tenés alguna duda, por favor ponete en contacto con soporte."
+        )
+        EmailService._send_email(to_email, "Estado de tu registro en el sistema de subastas", html, text)
+
+    @staticmethod
     def _send_email(to_email: str, subject: str, html: str, text: str) -> None:
         provider = settings.email_provider.lower().strip()
 
