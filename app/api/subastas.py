@@ -1,12 +1,23 @@
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import StreamingResponse
 from psycopg import Connection
 
 from app.dependencies import get_current_user, get_db
 from app.services.subasta_service import SubastaService
-from app.schemas.schemas import SubastaListado, SubastaListadoPublico, SubastaDetalle, SubastaDetallePublica
+from app.services.streamer import SubastaStreamer
+from app.schemas.schemas import (
+    SubastaListado, SubastaListadoPublico,
+    SubastaDetalle, SubastaDetallePublica,
+    PujaRequest, PujaResponse, Puja, Pago, PagoRequest,
+)
 
 router = APIRouter(prefix="/subastas")
 
+
+# ─────────────────── LISTADOS PÚBLICOS ───────────────────
 
 @router.get("/publicas", response_model=list[SubastaListadoPublico])
 async def list_public_auctions(db: Connection = Depends(get_db)):
@@ -25,6 +36,8 @@ async def get_public_auction_detail(
         raise HTTPException(status_code=404, detail="Subasta no encontrada")
     return subasta
 
+
+# ─────────────────── LISTADOS AUTENTICADOS ───────────────────
 
 @router.get("", response_model=list[SubastaListado])
 async def list_auctions(
@@ -48,6 +61,7 @@ async def get_auction_detail(
     return subasta
 
 
+# ─────────────────── JOIN / LEAVE ───────────────────
 
 @router.post("/{id}/join", status_code=201)
 async def join_auction(
@@ -55,7 +69,8 @@ async def join_auction(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    categoria = user["categoria"].value if hasattr(user["categoria"], "value") else str(user["categoria"])
+    return SubastaService.join_subasta(db, id, user["usuarioId"], categoria)
 
 
 @router.delete("/{id}/join", status_code=204)
@@ -64,44 +79,117 @@ async def leave_auction(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    SubastaService.leave_subasta(db, id, user["usuarioId"])
+    return None
 
+
+# ─────────────────── STREAMING (SSE) ───────────────────
 
 @router.get("/{id}/stream")
 async def stream_auction(
     id: int,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Endpoint SSE: el frontend se conecta aquí y recibe en tiempo real
+    cada nueva puja o cambio de ítem mientras la subasta esté abierta.
+    """
+    queue = SubastaStreamer.subscribe(id)
+
+    async def event_generator():
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    # Keepalive para no cortar la conexion
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            SubastaStreamer.unsubscribe(id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
+
+
+# ─────────────────── PUJAR ───────────────────
+
+@router.post("/{id}/items/{item_id}/pujar", status_code=201, response_model=PujaResponse)
+async def place_bid(
+    id: int,
+    item_id: int,
+    body: PujaRequest,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    categoria = user["categoria"].value if hasattr(user["categoria"], "value") else str(user["categoria"])
+    resultado = SubastaService.procesar_puja(
+        db=db,
+        subasta_id=id,
+        item_id=item_id,
+        usuario_id=user["usuarioId"],
+        categoria_usuario=categoria,
+        importe=body.importe,
+    )
+
+    # Notificar a todos los usuarios conectados via SSE
+    await SubastaStreamer.broadcast(id, "puja", {
+        "itemId": item_id,
+        "mejorOfertaActual": resultado["mejorOfertaActual"],
+        "limiteMinimo": resultado["limiteMinimo"],
+        "limiteMaximo": resultado["limiteMaximo"],
+        "pujaId": resultado["pujaId"],
+    })
+
+    return PujaResponse(**resultado)
 
 
-@router.get("/{id}/historial")
+# ─────────────────── HISTORIAL ───────────────────
+
+@router.get("/{id}/historial", response_model=list[Puja])
 async def get_auction_history(
     id: int,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return SubastaService.get_historial(db, id, user["usuarioId"])
 
 
-@router.get("/{id}/pagos")
+# ─────────────────── PAGOS ───────────────────
+
+@router.get("/{id}/pagos", response_model=Pago)
 async def get_auction_payment(
     id: int,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return SubastaService.get_pago(db, id, user["usuarioId"])
 
 
 @router.post("/{id}/pagos")
 async def confirm_auction_payment(
     id: int,
+    body: PagoRequest,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return SubastaService.confirmar_pago(
+        db=db,
+        subasta_id=id,
+        usuario_id=user["usuarioId"],
+        medio_pago_id=body.medioPagoId,
+        modo_entrega=body.modoEntrega.value,
+        direccion_envio=body.direccionEnvio,
+        acepta_perder_seguro=body.aceptaPerderSeguro or False,
+    )
 
+
+# ─────────────────── CIERRE ───────────────────
 
 @router.post("/{id}/cerrar")
 async def close_auction(
@@ -109,14 +197,12 @@ async def close_auction(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    resultado = SubastaService.cerrar_subasta(db, id)
 
+    # Notificar via SSE que la subasta se cerró
+    await SubastaStreamer.broadcast(id, "cierre", {
+        "message": "La subasta ha finalizado",
+        "itemsCerrados": resultado["itemsCerrados"],
+    })
 
-@router.post("/{id}/items/{item_id}/pujar", status_code=201)
-async def place_bid(
-    id: int,
-    item_id: int,
-    db: Connection = Depends(get_db),
-    user: dict = Depends(get_current_user),
-):
-    pass
+    return resultado

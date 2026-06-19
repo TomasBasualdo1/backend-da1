@@ -4,7 +4,14 @@ from psycopg import Connection
 from app.dependencies import get_current_user, get_db
 from app.repositories.usuario_repo import UsuarioRepository
 from app.services.email_service import EmailService
-from app.schemas.schemas import UsuarioVerificacion
+from app.services.admin_service import AdminService
+from app.schemas.schemas import (
+    UsuarioVerificacion, 
+    MedioPagoVerificacion, 
+    ArticuloEvaluacion,
+    SubastaCreate, 
+    CatalogoItemInput
+)
 
 router = APIRouter(prefix="/admin")
 
@@ -17,7 +24,6 @@ async def verify_user(
     user: dict = Depends(get_current_user),
 ):
     if body.admitido:
-        # If category is provided, extract its string value
         categoria_str = body.categoria.value if body.categoria else None
         result = UsuarioRepository.aprobar_registro(db, id, categoria_str)
         try:
@@ -34,37 +40,40 @@ async def verify_user(
         return {"message": "Usuario rechazado. Se envió la notificación de rechazo."}
 
 
-
 @router.post("/medios-pago/{id}/verificar")
 async def verify_payment_method(
     id: int,
+    body: MedioPagoVerificacion,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return AdminService.verify_payment_method(db, id, body.estadoVerificacion.value)
 
 
 @router.post("/articulos/{id}/evaluar")
 async def evaluate_article(
     id: int,
+    body: ArticuloEvaluacion,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return AdminService.evaluate_article(db, id, body)
 
 
 @router.post("/subastas", status_code=201)
 async def create_auction(
+    body: SubastaCreate,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return AdminService.create_auction(db, body)
 
 
 @router.post("/subastas/{id}/catalogo/items", status_code=201)
 async def add_catalog_item(
     id: int,
+    body: CatalogoItemInput,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    pass
+    return AdminService.add_catalog_item(db, id, body)
