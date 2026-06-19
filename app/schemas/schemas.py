@@ -377,6 +377,10 @@ class ArticuloEvaluacion(BaseModel):
     subastaSugeridaId: Optional[int] = None
 
 
+class AceptarTasacionRequest(BaseModel):
+    acepta: bool
+
+
 class Seguro(BaseModel):
     poliza: Optional[str] = Field(None, example='POL-123456')
     compania: Optional[str] = None
