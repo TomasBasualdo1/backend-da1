@@ -1,161 +1,394 @@
+from uuid import uuid4
+
+from fastapi import HTTPException, status
 from psycopg import Connection
+
+from app.schemas.schemas import ArticuloEvaluacion, ArticuloInput
 
 
 class ArticuloRepository:
+    DEFAULT_VERIFICADOR_ID = 1
+    DEFAULT_REVISOR_ID = 1
+    DEFAULT_COMPANIA_SEGURO = "Cobertura DA1"
 
     @staticmethod
-    def crear_articulo(db: Connection, duenio_id: int, descripcion: str, historia: str | None,
-                       artista: str | None, fecha_creacion: str | None, es_propietario: bool,
-                       declara_origen_licito: bool, fotos: list[str], documentacion: list[str] | None) -> int:
+    def _dump_schema(data):
+        if hasattr(data, "model_dump"):
+            return data.model_dump()
+        return data.dict()
+
+    @staticmethod
+    def _to_url_list(values) -> list[str]:
+        return [str(value) for value in (values or [])]
+
+    @staticmethod
+    def _row_to_articulo(row: dict | None) -> dict | None:
+        if not row:
+            return None
+
+        articulo = dict(row)
+        for key in ("precioBasePropuesto", "comisionPropuesta"):
+            if articulo.get(key) is not None:
+                articulo[key] = float(articulo[key])
+
+        seguro_poliza = articulo.pop("seguroPoliza", None)
+        seguro_compania = articulo.pop("seguroCompania", None)
+        seguro_importe = articulo.pop("seguroImporte", None)
+        articulo["seguro"] = None
+        if seguro_poliza:
+            articulo["seguro"] = {
+                "poliza": seguro_poliza,
+                "compania": seguro_compania,
+                "montoAsegurado": (
+                    float(seguro_importe) if seguro_importe is not None else None
+                ),
+            }
+
+        articulo["fotos"] = articulo.get("fotos") or []
+        articulo["documentacionOrigen"] = articulo.get("documentacionOrigen") or []
+        return articulo
+
+    @staticmethod
+    def ensure_duenio(db: Connection, persona_id: int) -> int:
         with db.cursor() as cursor:
             cursor.execute(
+                "SELECT identificador FROM duenios WHERE identificador = %s",
+                (persona_id,),
+            )
+            duenio = cursor.fetchone()
+            if duenio:
+                return duenio["identificador"]
+
+            cursor.execute(
+                "SELECT numeropais FROM clientes WHERE identificador = %s",
+                (persona_id,),
+            )
+            cliente = cursor.fetchone()
+            if not cliente:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cliente no encontrado para crear duenio.",
+                )
+
+            cursor.execute(
                 """
-                INSERT INTO articulos (
-                    duenio_id, descripcion, historia, artista, fecha_creacion,
-                    es_propietario, declara_origen_licito, estado, fotos, documentacion_origen, fecha_envio
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', %s, %s, NOW())
+                INSERT INTO duenios (
+                    identificador,
+                    numeropais,
+                    verificacionfinanciera,
+                    verificacionjudicial,
+                    calificacionriesgo,
+                    verificador
+                )
+                VALUES (%s, %s, 'si', 'si', 1, %s)
                 RETURNING identificador
                 """,
-                (duenio_id, descripcion, historia, artista, fecha_creacion,
-                 es_propietario, declara_origen_licito, fotos, documentacion or []),
+                (
+                    persona_id,
+                    cliente["numeropais"],
+                    ArticuloRepository.DEFAULT_VERIFICADOR_ID,
+                ),
             )
             return cursor.fetchone()["identificador"]
 
     @staticmethod
-    def get_articulos_por_duenio(db: Connection, duenio_id: int) -> list[dict]:
+    def create_articulo(
+        db: Connection,
+        duenio_id: int,
+        data: ArticuloInput,
+    ) -> dict:
+        payload = ArticuloRepository._dump_schema(data)
+
+        try:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO articulos (
+                        duenio_id,
+                        descripcion,
+                        historia,
+                        artista,
+                        fecha_creacion,
+                        es_propietario,
+                        declara_origen_licito,
+                        estado,
+                        fecha_envio,
+                        fotos,
+                        documentacion_origen
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', CURRENT_TIMESTAMP, %s, %s)
+                    RETURNING
+                        identificador AS id,
+                        duenio_id AS "duenioId",
+                        descripcion,
+                        historia,
+                        artista,
+                        fecha_creacion AS "fechaCreacion",
+                        estado,
+                        motivo_rechazo AS "motivoRechazo",
+                        precio_base_propuesto AS "precioBasePropuesto",
+                        comision_propuesta AS "comisionPropuesta",
+                        tasacion_aceptada AS "tasacionAceptada",
+                        fecha_envio AS "fechaEnvio",
+                        ubicacion,
+                        seguro_poliza AS "seguroPoliza",
+                        fotos,
+                        documentacion_origen AS "documentacionOrigen"
+                    """,
+                    (
+                        duenio_id,
+                        payload["descripcion"],
+                        payload.get("historia"),
+                        payload.get("artista"),
+                        payload.get("fechaCreacion"),
+                        payload.get("esPropietario", True),
+                        payload.get("declaraOrigenLicito", True),
+                        ArticuloRepository._to_url_list(payload.get("fotos")),
+                        ArticuloRepository._to_url_list(
+                            payload.get("documentacionOrigen")
+                        ),
+                    ),
+                )
+                created = ArticuloRepository._row_to_articulo(cursor.fetchone())
+
+            db.commit()
+            return created
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def get_articulo(db: Connection, id: int) -> dict | None:
         with db.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT
                     a.identificador AS id,
+                    a.duenio_id AS "duenioId",
                     a.descripcion,
-                    a.precio_base_propuesto AS "precioBasePropuesto",
-                    a.comision_propuesta AS "comisionPropuesta",
-                    a.tasacion_aceptada AS "tasacionAceptada",
                     a.historia,
                     a.artista,
                     a.fecha_creacion AS "fechaCreacion",
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
-                    a.fecha_envio AS "fechaEnvio",
-                    a.fotos,
-                    a.ubicacion,
-                    s.nropoliza AS seguro_poliza,
-                    s.compania AS seguro_compania,
-                    s.importe AS seguro_monto
-                FROM articulos a
-                LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
-                WHERE a.duenio_id = %s
-                ORDER BY a.fecha_envio DESC
-                """,
-                (duenio_id,),
-            )
-            rows = cursor.fetchall()
-            result = []
-            for r in rows:
-                item = dict(r)
-                if item.get("seguro_poliza"):
-                    item["seguro"] = {
-                        "poliza": item["seguro_poliza"],
-                        "compania": item["seguro_compania"],
-                        "montoAsegurado": float(item["seguro_monto"]) if item["seguro_monto"] else None,
-                    }
-                else:
-                    item["seguro"] = None
-                for k in ("seguro_poliza", "seguro_compania", "seguro_monto"):
-                    item.pop(k, None)
-                if item.get("precioBasePropuesto") is not None:
-                    item["precioBasePropuesto"] = float(item["precioBasePropuesto"])
-                if item.get("comisionPropuesta") is not None:
-                    item["comisionPropuesta"] = float(item["comisionPropuesta"])
-                result.append(item)
-            return result
-
-    @staticmethod
-    def get_articulo(db: Connection, articulo_id: int) -> dict | None:
-        with db.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                    a.identificador AS id, a.duenio_id, a.descripcion,
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
-                    a.historia, a.artista,
-                    a.fecha_creacion AS "fechaCreacion",
-                    a.estado,
-                    a.motivo_rechazo AS "motivoRechazo",
                     a.fecha_envio AS "fechaEnvio",
-                    a.fotos, a.ubicacion,
-                    s.nropoliza AS seguro_poliza,
-                    s.compania AS seguro_compania,
-                    s.importe AS seguro_monto
+                    a.ubicacion,
+                    a.fotos,
+                    a.documentacion_origen AS "documentacionOrigen",
+                    s.nropoliza AS "seguroPoliza",
+                    s.compania AS "seguroCompania",
+                    s.importe AS "seguroImporte"
                 FROM articulos a
                 LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
                 WHERE a.identificador = %s
                 """,
-                (articulo_id,),
+                (id,),
             )
-            r = cursor.fetchone()
-            if not r:
-                return None
-            item = dict(r)
-            if item.get("seguro_poliza"):
-                item["seguro"] = {
-                    "poliza": item["seguro_poliza"],
-                    "compania": item["seguro_compania"],
-                    "montoAsegurado": float(item["seguro_monto"]) if item["seguro_monto"] else None,
-                }
-            else:
-                item["seguro"] = None
-            for k in ("seguro_poliza", "seguro_compania", "seguro_monto"):
-                item.pop(k, None)
-            if item.get("precioBasePropuesto") is not None:
-                item["precioBasePropuesto"] = float(item["precioBasePropuesto"])
-            if item.get("comisionPropuesta") is not None:
-                item["comisionPropuesta"] = float(item["comisionPropuesta"])
-            return item
+            return ArticuloRepository._row_to_articulo(cursor.fetchone())
 
     @staticmethod
-    def aceptar_tasacion(db: Connection, articulo_id: int) -> None:
+    def list_articulos_by_owner(db: Connection, duenio_id: int) -> list[dict]:
         with db.cursor() as cursor:
             cursor.execute(
-                "UPDATE articulos SET tasacion_aceptada = true WHERE identificador = %s",
-                (articulo_id,),
+                """
+                SELECT
+                    a.identificador AS id,
+                    a.duenio_id AS "duenioId",
+                    a.descripcion,
+                    a.historia,
+                    a.artista,
+                    a.fecha_creacion AS "fechaCreacion",
+                    a.estado,
+                    a.motivo_rechazo AS "motivoRechazo",
+                    a.precio_base_propuesto AS "precioBasePropuesto",
+                    a.comision_propuesta AS "comisionPropuesta",
+                    a.tasacion_aceptada AS "tasacionAceptada",
+                    a.fecha_envio AS "fechaEnvio",
+                    a.ubicacion,
+                    a.fotos,
+                    a.documentacion_origen AS "documentacionOrigen",
+                    s.nropoliza AS "seguroPoliza",
+                    s.compania AS "seguroCompania",
+                    s.importe AS "seguroImporte"
+                FROM articulos a
+                LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
+                WHERE a.duenio_id = %s
+                ORDER BY a.fecha_envio DESC, a.identificador DESC
+                """,
+                (duenio_id,),
             )
+            return [
+                ArticuloRepository._row_to_articulo(row)
+                for row in cursor.fetchall()
+            ]
 
     @staticmethod
-    def rechazar_tasacion(db: Connection, articulo_id: int) -> None:
-        """El dueño rechaza la tasación => se devuelve el artículo."""
-        with db.cursor() as cursor:
-            cursor.execute(
-                "UPDATE articulos SET tasacion_aceptada = false, estado = 'devuelto' WHERE identificador = %s",
-                (articulo_id,),
-            )
+    def evaluar_articulo(
+        db: Connection,
+        id: int,
+        evaluacion: ArticuloEvaluacion,
+    ) -> dict:
+        payload = ArticuloRepository._dump_schema(evaluacion)
+        estado_value = payload["estado"]
+        if hasattr(estado_value, "value"):
+            estado_value = estado_value.value
 
-    @staticmethod
-    def evaluar_articulo(db: Connection, articulo_id: int, estado: str, motivo_rechazo: str | None,
-                         precio_base: float | None, comision: float | None) -> None:
-        with db.cursor() as cursor:
-            if estado == "aprobado":
+        try:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "SELECT identificador FROM articulos WHERE identificador = %s",
+                    (id,),
+                )
+                if not cursor.fetchone():
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Articulo no encontrado.",
+                    )
+
                 cursor.execute(
                     """
                     UPDATE articulos
-                    SET estado = 'aprobado', precio_base_propuesto = %s, comision_propuesta = %s
+                    SET
+                        estado = %s,
+                        motivo_rechazo = %s,
+                        precio_base_propuesto = %s,
+                        comision_propuesta = %s
                     WHERE identificador = %s
                     """,
-                    (precio_base, comision, articulo_id),
+                    (
+                        estado_value,
+                        payload.get("motivoRechazo"),
+                        payload.get("precioBasePropuesto"),
+                        payload.get("comisionPropuesta"),
+                        id,
+                    ),
                 )
-            else:
+
+            db.commit()
+            return ArticuloRepository.get_articulo(db, id)
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def aceptar_tasacion(db: Connection, id: int, acepta: bool) -> dict:
+        try:
+            articulo = ArticuloRepository.get_articulo(db, id)
+            if not articulo:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Articulo no encontrado.",
+                )
+
+            if articulo.get("tasacionAceptada") is True:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La tasacion ya fue aceptada.",
+                )
+
+            with db.cursor() as cursor:
+                if not acepta:
+                    cursor.execute(
+                        """
+                        UPDATE articulos
+                        SET tasacion_aceptada = FALSE, estado = 'devuelto'
+                        WHERE identificador = %s
+                        """,
+                        (id,),
+                    )
+                    db.commit()
+                    return ArticuloRepository.get_articulo(db, id)
+
+                if articulo.get("precioBasePropuesto") is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="El articulo no tiene precio base propuesto.",
+                    )
+
+                poliza = f"ART-{id}-{uuid4().hex[:8]}"
                 cursor.execute(
-                    "UPDATE articulos SET estado = 'rechazado', motivo_rechazo = %s WHERE identificador = %s",
-                    (motivo_rechazo, articulo_id),
+                    """
+                    INSERT INTO seguros (nropoliza, compania, polizacombinada, importe)
+                    VALUES (%s, %s, 'no', %s)
+                    RETURNING nropoliza
+                    """,
+                    (
+                        poliza,
+                        ArticuloRepository.DEFAULT_COMPANIA_SEGURO,
+                        articulo["precioBasePropuesto"],
+                    ),
                 )
+                seguro = cursor.fetchone()
+
+                cursor.execute(
+                    """
+                    INSERT INTO productos (
+                        fecha,
+                        disponible,
+                        descripcioncatalogo,
+                        descripcioncompleta,
+                        revisor,
+                        duenio,
+                        seguro
+                    )
+                    VALUES (CURRENT_DATE, 'si', %s, %s, %s, %s, %s)
+                    RETURNING identificador AS "productoId"
+                    """,
+                    (
+                        articulo["descripcion"],
+                        articulo["descripcion"],
+                        ArticuloRepository.DEFAULT_REVISOR_ID,
+                        articulo["duenioId"],
+                        seguro["nropoliza"],
+                    ),
+                )
+                producto = cursor.fetchone()
+
+                for foto_url in articulo.get("fotos") or []:
+                    cursor.execute(
+                        """
+                        INSERT INTO fotos_adicionales (producto, foto_url)
+                        VALUES (%s, %s)
+                        """,
+                        (producto["productoId"], str(foto_url)),
+                    )
+
+                cursor.execute(
+                    """
+                    UPDATE articulos
+                    SET
+                        tasacion_aceptada = TRUE,
+                        estado = 'aprobado',
+                        seguro_poliza = %s
+                    WHERE identificador = %s
+                    """,
+                    (seguro["nropoliza"], id),
+                )
+
+            db.commit()
+            result = ArticuloRepository.get_articulo(db, id)
+            result["productoId"] = producto["productoId"]
+            return result
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def aumentar_seguro(db: Connection, articulo_id: int, monto_nuevo: float) -> None:
         with db.cursor() as cursor:
-            cursor.execute("SELECT seguro_poliza FROM articulos WHERE identificador = %s", (articulo_id,))
+            cursor.execute(
+                "SELECT seguro_poliza FROM articulos WHERE identificador = %s",
+                (articulo_id,),
+            )
             row = cursor.fetchone()
             if row and row["seguro_poliza"]:
                 cursor.execute(
@@ -165,12 +398,16 @@ class ArticuloRepository:
 
     @staticmethod
     def get_all_pendientes(db: Connection) -> list[dict]:
-        """Para el admin: lista todos los articulos en estado pendiente."""
         with db.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT a.identificador AS id, a.descripcion, a.estado, a.fecha_envio AS "fechaEnvio",
-                       p.nombre AS duenio_nombre, a.duenio_id
+                SELECT
+                    a.identificador AS id,
+                    a.duenio_id AS "duenioId",
+                    a.descripcion,
+                    a.estado,
+                    a.fecha_envio AS "fechaEnvio",
+                    p.nombre AS duenio_nombre
                 FROM articulos a
                 JOIN personas p ON a.duenio_id = p.identificador
                 WHERE a.estado IN ('pendiente', 'en_inspeccion')

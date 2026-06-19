@@ -1,9 +1,288 @@
+from fastapi import HTTPException, status
 from psycopg import Connection
+
+from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
 
 class SubastaRepository:
 
     # ─────────────────────── LISTADOS ───────────────────────
+
+    @staticmethod
+    def _resolve_catalog_responsable(db: Connection, usuario_id: int | None) -> int:
+        with db.cursor() as cursor:
+            if usuario_id is not None:
+                cursor.execute(
+                    "SELECT identificador FROM empleados WHERE identificador = %s",
+                    (usuario_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row["identificador"]
+
+            cursor.execute(
+                "SELECT identificador FROM empleados ORDER BY identificador LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No hay empleados disponibles para asignar como responsable del catalogo.",
+                )
+            return row["identificador"]
+
+    @staticmethod
+    def _ensure_subastador_exists(db: Connection, subastador_id: int | None) -> None:
+        if subastador_id is None:
+            return
+
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM subastadores WHERE identificador = %s",
+                (subastador_id,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El subastadorId indicado no existe.",
+                )
+
+    @staticmethod
+    def create_subasta(
+        db: Connection,
+        subasta: SubastaCreate,
+        usuario_id: int | None,
+    ) -> dict:
+        try:
+            SubastaRepository._ensure_subastador_exists(db, subasta.subastadorId)
+            responsable_id = SubastaRepository._resolve_catalog_responsable(
+                db, usuario_id
+            )
+
+            with db.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO subastas (
+                        fecha, hora, estado, subastador, ubicacion,
+                        capacidadasistentes, tienedeposito, seguridadpropia,
+                        categoria
+                    )
+                    VALUES (%s, %s, 'abierta', %s, %s, %s, %s, %s, %s)
+                    RETURNING
+                        identificador AS id,
+                        fecha,
+                        hora::text AS hora,
+                        estado,
+                        categoria,
+                        ubicacion
+                    """,
+                    (
+                        subasta.fecha,
+                        subasta.hora,
+                        subasta.subastadorId,
+                        subasta.ubicacion,
+                        subasta.capacidadAsistentes,
+                        "si" if subasta.tieneDeposito else "no",
+                        "si" if subasta.seguridadPropia else "no",
+                        subasta.categoria.value,
+                    ),
+                )
+                created = cursor.fetchone()
+
+                cursor.execute(
+                    """
+                    INSERT INTO catalogos (descripcion, subasta, responsable)
+                    VALUES (%s, %s, %s)
+                    RETURNING identificador
+                    """,
+                    (
+                        f"Catalogo de subasta {created['id']}",
+                        created["id"],
+                        responsable_id,
+                    ),
+                )
+                catalogo_id = cursor.fetchone()["identificador"]
+
+            db.commit()
+            created["moneda"] = subasta.moneda.value
+            created["catalogoId"] = catalogo_id
+            return created
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def _get_or_create_catalogo(
+        db: Connection,
+        subasta_id: int,
+        usuario_id: int | None,
+    ) -> int:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT identificador FROM subastas WHERE identificador = %s",
+                (subasta_id,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Subasta no encontrada.",
+                )
+
+            cursor.execute(
+                """
+                SELECT identificador
+                FROM catalogos
+                WHERE subasta = %s
+                ORDER BY identificador
+                LIMIT 1
+                """,
+                (subasta_id,),
+            )
+            catalogo = cursor.fetchone()
+            if catalogo:
+                return catalogo["identificador"]
+
+            responsable_id = SubastaRepository._resolve_catalog_responsable(
+                db, usuario_id
+            )
+            cursor.execute(
+                """
+                INSERT INTO catalogos (descripcion, subasta, responsable)
+                VALUES (%s, %s, %s)
+                RETURNING identificador
+                """,
+                (f"Catalogo de subasta {subasta_id}", subasta_id, responsable_id),
+            )
+            return cursor.fetchone()["identificador"]
+
+    @staticmethod
+    def add_catalog_item(
+        db: Connection,
+        subasta_id: int,
+        item: CatalogoItemInput,
+        usuario_id: int | None,
+    ) -> dict:
+        try:
+            with db.cursor() as cursor:
+                producto_id = item.productoId
+                if producto_id is None:
+                    cursor.execute(
+                        """
+                        SELECT
+                            identificador,
+                            descripcion,
+                            duenio_id,
+                            estado,
+                            tasacion_aceptada,
+                            seguro_poliza,
+                            fotos
+                        FROM articulos
+                        WHERE identificador = %s
+                        """,
+                        (item.articuloId,),
+                    )
+                    articulo = cursor.fetchone()
+                    if not articulo:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Artículo no encontrado.",
+                        )
+                    if (
+                        articulo["estado"] != "aprobado"
+                        or not articulo["tasacion_aceptada"]
+                    ):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="El artículo debe estar aprobado y con tasación aceptada.",
+                        )
+
+                    revisor_id = SubastaRepository._resolve_catalog_responsable(
+                        db, usuario_id
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO productos (
+                            fecha,
+                            disponible,
+                            descripcioncatalogo,
+                            descripcioncompleta,
+                            revisor,
+                            duenio,
+                            seguro
+                        )
+                        VALUES (CURRENT_DATE, 'si', %s, %s, %s, %s, %s)
+                        RETURNING identificador
+                        """,
+                        (
+                            articulo["descripcion"],
+                            articulo["descripcion"],
+                            revisor_id,
+                            articulo["duenio_id"],
+                            articulo["seguro_poliza"],
+                        ),
+                    )
+                    producto_id = cursor.fetchone()["identificador"]
+                    for foto_url in articulo.get("fotos") or []:
+                        cursor.execute(
+                            """
+                            INSERT INTO fotos_adicionales (producto, foto_url)
+                            VALUES (%s, %s)
+                            """,
+                            (producto_id, str(foto_url)),
+                        )
+                else:
+                    cursor.execute(
+                        "SELECT 1 FROM productos WHERE identificador = %s",
+                        (producto_id,),
+                    )
+                    if not cursor.fetchone():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="El productoId indicado no existe.",
+                        )
+
+            catalogo_id = SubastaRepository._get_or_create_catalogo(
+                db, subasta_id, usuario_id
+            )
+
+            with db.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO itemscatalogo (
+                        catalogo, producto, preciobase, comision, subastado
+                    )
+                    VALUES (%s, %s, %s, %s, 'no')
+                    RETURNING
+                        identificador AS id,
+                        producto AS "productoId",
+                        preciobase AS "precioBase",
+                        comision,
+                        subastado
+                    """,
+                    (
+                        catalogo_id,
+                        producto_id,
+                        item.precioBase,
+                        item.comision,
+                    ),
+                )
+                created = cursor.fetchone()
+
+            db.commit()
+            created["subastaId"] = subasta_id
+            created["catalogoId"] = catalogo_id
+            created["precioBase"] = float(created["precioBase"])
+            created["comision"] = float(created["comision"])
+            return created
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def get_publicas(db: Connection) -> list[dict]:
@@ -14,7 +293,7 @@ class SubastaRepository:
                     s.identificador AS id,
                     s.fecha,
                     s.hora::text AS hora,
-                    s.estado,
+                    CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
                     'USD' AS moneda
@@ -37,7 +316,7 @@ class SubastaRepository:
                     s.identificador AS id,
                     s.fecha,
                     s.hora::text AS hora,
-                    s.estado,
+                    CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
                     'USD' AS moneda
@@ -89,7 +368,7 @@ class SubastaRepository:
                     s.identificador AS id,
                     s.fecha,
                     s.hora::text AS hora,
-                    s.estado,
+                    CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
                     'USD' AS moneda
