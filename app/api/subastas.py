@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from psycopg import Connection
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db, require_admin
 from app.services.subasta_service import SubastaService
 from app.services.streamer import SubastaStreamer
 from app.schemas.schemas import (
@@ -197,6 +197,7 @@ async def close_auction(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
+    require_admin(user)
     resultado = SubastaService.cerrar_subasta(db, id)
 
     # Notificar via SSE que la subasta se cerró

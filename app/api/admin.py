@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg import Connection
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db, require_admin
 from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import (
     Articulo,
@@ -18,11 +18,7 @@ router = APIRouter(prefix="/admin")
 
 
 def _require_admin(user: dict) -> None:
-    if user.get("usuarioId") != 1:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado (solo administradores).",
-        )
+    require_admin(user)
 
 
 @router.post("/usuarios/{id}/verificar")
@@ -32,8 +28,15 @@ async def verify_user(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
+    _require_admin(user)
     if body.admitido:
-        categoria_str = body.categoria.value if body.categoria else None
+        if body.categoria is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Debe indicar una categoría para aprobar el usuario.",
+            )
+
+        categoria_str = body.categoria.value
         result = UsuarioRepository.aprobar_registro(db, id, categoria_str)
         try:
             EmailService.send_verification_email(result["email"], result["token"])
@@ -41,10 +44,16 @@ async def verify_user(
             print(f"Error sending verification email: {e}")
         return {"message": "Usuario aprobado. Se envió el email de verificación."}
 
+    if not body.motivoRechazo or not body.motivoRechazo.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debe indicar un motivo de rechazo.",
+        )
+
     result = UsuarioRepository.rechazar_registro(db, id, body.motivoRechazo)
     try:
         EmailService.send_rejection_email(
-            result["email"], body.motivoRechazo or "No especificado"
+            result["email"], body.motivoRechazo
         )
     except Exception as e:
         print(f"Error sending rejection email: {e}")
@@ -58,6 +67,7 @@ async def verify_payment_method(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
+    _require_admin(user)
     return AdminService.verify_payment_method(db, id, body.estadoVerificacion.value)
 
 
@@ -78,6 +88,7 @@ async def create_auction(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
+    _require_admin(user)
     return AdminService.create_auction(db, body, user.get("usuarioId"))
 
 
@@ -88,4 +99,5 @@ async def add_catalog_item(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
+    _require_admin(user)
     return AdminService.add_catalog_item(db, id, body, user.get("usuarioId"))

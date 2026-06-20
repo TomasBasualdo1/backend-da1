@@ -93,7 +93,11 @@ class UsuarioRepository:
                     (usuario_id,),
                 )
             cursor.execute(
-                "UPDATE clientes_adicionales SET estado_registro = 'aprobado' WHERE identificador = %s",
+                """
+                UPDATE clientes_adicionales
+                SET estado_registro = 'aprobado', motivo_rechazo = NULL
+                WHERE identificador = %s
+                """,
                 (usuario_id,),
             )
             cursor.execute(
@@ -121,10 +125,14 @@ class UsuarioRepository:
             cursor.execute(
                 """
                 UPDATE clientes_adicionales 
-                SET estado_registro = 'rechazado', motivo_rechazo = %s 
+                SET estado_registro = 'rechazado', motivo_rechazo = %s
                 WHERE identificador = %s
                 """,
                 (motivo_rechazo, usuario_id),
+            )
+            cursor.execute(
+                "UPDATE personas_adicionales SET token_email = NULL WHERE identificador = %s",
+                (usuario_id,),
             )
         db.commit()
         return {"email": row["email"]}
@@ -164,4 +172,3 @@ class UsuarioRepository:
             )
         db.commit()
         return token
-
