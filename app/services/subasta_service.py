@@ -299,7 +299,13 @@ class SubastaService:
 
     @staticmethod
     def get_historial(db: Connection, subasta_id: int, usuario_id: int) -> list[dict]:
-        return SubastaRepository.get_historial_pujas(db, subasta_id, usuario_id)
+        asistente_id = SubastaRepository.get_asistente_id(db, subasta_id, usuario_id)
+        if not asistente_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Debes unirte a la subasta para ver el historial de pujas",
+            )
+        return SubastaRepository.get_historial_pujas(db, subasta_id)
 
     # ─────────────────── PAGOS ───────────────────
 
