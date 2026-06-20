@@ -28,3 +28,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         detail="Token revoked",
     )
     return payload
+
+
+def require_admin(user: dict) -> None:
+    if user.get("usuarioId") != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado (solo administradores).",
+        )

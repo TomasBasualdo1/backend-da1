@@ -74,7 +74,7 @@ async def registro_paso1(
         fotoDorso.content_type or "image/jpeg",
     )
 
-    persona_id = UsuarioRepository.create_cliente_pendiente(
+    UsuarioRepository.create_cliente_pendiente(
         db=db,
         nombre_completo=f"{nombre} {apellido}",
         documento=documento,
@@ -86,16 +86,12 @@ async def registro_paso1(
         foto_dorso_url=foto_dorso_url,
     )
 
-    result = UsuarioRepository.aprobar_registro(db, persona_id)
-    try:
-        EmailService.send_verification_email(result["email"], result["token"])
-    except Exception as e:
-        print(f"Error sending verification email to {result['email']}: {e}")
-        print(f"FALLBACK DEBUG: Verification token for {result['email']} is: {result['token']}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Usuario registrado pero falló el envío del email de verificación: {str(e)}"
+    return {
+        "message": (
+            "Solicitud de registro recibida. La empresa revisará tus datos y "
+            "te enviará un email cuando seas aprobado."
         )
+    }
 
 
 @router.post("/registro/paso2", status_code=201)
