@@ -157,6 +157,12 @@ class TestPujaIdempotencyApi(unittest.TestCase):
         self.assertEqual(result.pujaId, 77)
         self.assertEqual(procesar.call_args.kwargs["idempotency_key"], "abc-123")
         broadcast.assert_called_once()
+        _, event_type, event_data = broadcast.call_args.args
+        self.assertEqual(event_type, "puja")
+        self.assertEqual(event_data["usuarioId"], 12)
+        self.assertEqual(event_data["importe"], 1200.0)
+        self.assertEqual(event_data["moneda"], "USD")
+        self.assertTrue(event_data["esGanadoraParcial"])
 
     def test_endpoint_no_reemite_sse_en_replay(self):
         user = {"usuarioId": 12, "categoria": "comun"}

@@ -507,6 +507,19 @@ class SubastaRepository:
             return bool(cursor.fetchone())
 
     @staticmethod
+    def tiene_sesion_activa(db: Connection, subasta_id: int, cliente_id: int) -> bool:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM sesiones_subasta
+                WHERE subasta_id = %s AND cliente_id = %s AND estado = 'activa'
+                """,
+                (subasta_id, cliente_id),
+            )
+            return bool(cursor.fetchone())
+
+    @staticmethod
     def join_subasta(db: Connection, subasta_id: int, cliente_id: int) -> None:
         with db.cursor() as cursor:
             cursor.execute("SELECT 1 FROM asistentes WHERE subasta = %s AND cliente = %s", (subasta_id, cliente_id))
