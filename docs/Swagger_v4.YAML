@@ -543,6 +543,7 @@ paths:
     get:
       summary: Ver detalle de subasta y su catalogo
       tags: [Subastas]
+      description: Retorna el catalogo con precios si la categoria del usuario alcanza la categoria de la subasta.
       parameters:
         - name: id
           in: path
@@ -561,6 +562,8 @@ paths:
                 $ref: "#/components/schemas/SubastaDetalle"
         "401":
           description: No autorizado.
+        "403":
+          description: Categoria insuficiente para ver el detalle autenticado.
         "404":
           description: Subasta no encontrada.
 
@@ -1318,7 +1321,10 @@ components:
         ubicacion:
           type: string
         moneda:
-          $ref: "#/components/schemas/Moneda"
+          allOf:
+            - $ref: "#/components/schemas/Moneda"
+          description: Actualmente el backend responde USD por defecto porque subastas no tiene columna moneda en el esquema vigente.
+          default: USD
 
     SubastaListadoPublico:
       allOf:

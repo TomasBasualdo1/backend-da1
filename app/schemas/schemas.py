@@ -234,7 +234,7 @@ class SubastaListadoPublico(SubastaListado):
 
 class Subastado(Enum):
     si = 'si'
-    False_ = False
+    no = 'no'
 
 
 class ItemCatalogo(BaseModel):
