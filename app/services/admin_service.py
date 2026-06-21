@@ -150,12 +150,11 @@ class AdminService:
                 SELECT 
                     s.identificador AS id, 
                     p.nombre, 
-                    p.apellido, 
                     s.matricula, 
                     s.region
                 FROM subastadores s
                 JOIN personas p ON s.identificador = p.identificador
-                ORDER BY p.apellido, p.nombre
+                ORDER BY p.nombre
                 """
             )
             return cursor.fetchall()
