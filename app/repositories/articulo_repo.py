@@ -421,8 +421,18 @@ class ArticuloRepository:
                     a.identificador AS id,
                     a.duenio_id AS "duenioId",
                     a.descripcion,
+                    a.historia,
+                    a.artista,
+                    a.fecha_creacion AS "fechaCreacion",
                     a.estado,
+                    a.motivo_rechazo AS "motivoRechazo",
+                    a.precio_base_propuesto AS "precioBasePropuesto",
+                    a.comision_propuesta AS "comisionPropuesta",
+                    a.tasacion_aceptada AS "tasacionAceptada",
                     a.fecha_envio AS "fechaEnvio",
+                    a.ubicacion,
+                    a.fotos,
+                    a.documentacion_origen AS "documentacionOrigen",
                     p.nombre AS duenio_nombre
                 FROM articulos a
                 JOIN personas p ON a.duenio_id = p.identificador
@@ -430,4 +440,7 @@ class ArticuloRepository:
                 ORDER BY a.fecha_envio
                 """
             )
-            return cursor.fetchall()
+            return [
+                ArticuloRepository._row_to_articulo(row)
+                for row in cursor.fetchall()
+            ]
