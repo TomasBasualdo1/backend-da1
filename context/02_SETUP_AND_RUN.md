@@ -20,12 +20,15 @@ pip install -r requirements.txt
 
 Leídas por `app/config.py` (`Settings`, pydantic-settings, `env_file=".env"`). Los nombres en `.env` son **case-insensitive** respecto de los campos.
 
+Usar `.env.example` como plantilla versionable. No commitear `.env`.
+
 | Variable | Requerida | Default | Notas |
 |----------|-----------|---------|-------|
+| `APP_ENV` | No | `development` | En Render usar `production`; en producción bloquea `SECRET_KEY` default. |
 | `DATABASE_URL` | **Sí** | — | Cadena de conexión psycopg a Postgres/Supabase. |
 | `SUPABASE_URL` | **Sí** | — | Base URL del proyecto Supabase (para Storage). |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Sí** | — | Service role key (subida de archivos / presign). |
-| `SECRET_KEY` | No | `your-secret-key-change-in-production` | Clave de firma JWT. **Cambiar en prod.** |
+| `SECRET_KEY` | No local / **Sí prod** | `your-secret-key-change-in-production` | Clave de firma JWT. Con `APP_ENV=production` la app falla si queda el default. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `30` | Expiración del JWT. |
 | `EMAIL_PROVIDER` | No | `smtp` | `smtp` \| `resend` \| `sendgrid`. |
 | `SMTP_HOST` / `SMTP_PORT` | No | `smtp.gmail.com` / `587` | Si provider = smtp. |
