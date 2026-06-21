@@ -160,3 +160,21 @@ async def get_pending_payment_methods(
 ):
     _require_admin(user)
     return AdminService.get_pending_payment_methods(db)
+
+
+@router.get("/subastadores")
+async def get_subastadores(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_all_subastadores(db)
+
+
+@router.get("/articulos/aprobados-no-catalogados")
+async def get_approved_non_cataloged_articles(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_approved_non_cataloged_articles(db)

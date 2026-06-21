@@ -141,3 +141,42 @@ class AdminService:
             cursor.execute(query)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_all_subastadores(db: Connection) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    s.identificador AS id, 
+                    p.nombre, 
+                    p.apellido, 
+                    s.matricula, 
+                    s.region
+                FROM subastadores s
+                JOIN personas p ON s.identificador = p.identificador
+                ORDER BY p.apellido, p.nombre
+                """
+            )
+            return cursor.fetchall()
+
+    @staticmethod
+    def get_approved_non_cataloged_articles(db: Connection) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    a.identificador AS id, 
+                    a.descripcion, 
+                    a.precio_base_propuesto AS "precioBasePropuesto", 
+                    a.comision_propuesta AS "comisionPropuesta"
+                FROM articulos a
+                LEFT JOIN productos p ON p.seguro = a.seguro_poliza
+                LEFT JOIN itemscatalogo ic ON ic.producto = p.identificador
+                WHERE a.estado = 'aprobado' 
+                  AND a.tasacion_aceptada = TRUE 
+                  AND ic.identificador IS NULL
+                ORDER BY a.fecha_envio DESC
+                """
+            )
+            return cursor.fetchall()
