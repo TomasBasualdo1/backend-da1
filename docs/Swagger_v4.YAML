@@ -864,6 +864,40 @@ paths:
         "404":
           description: Medio de pago no encontrado.
 
+  /admin/pagos/procesar-vencimientos:
+    post:
+      summary: Procesar pagos vencidos y multas
+      tags: [Administracion]
+      description: Marca pagos pendientes vencidos, genera multas idempotentes del 10% y aplica bloqueo por multas vencidas.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resumen de vencimientos procesados.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pagosVencidosProcesados:
+                    type: integer
+                  multasCreadas:
+                    type: integer
+                  usuariosMarcadosMultaActiva:
+                    type: array
+                    items:
+                      type: integer
+                  usuariosBloqueados:
+                    type: array
+                    items:
+                      type: integer
+                  multasVencidasBloqueantes:
+                    type: integer
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+
   /admin/articulos/{id}/evaluar:
     post:
       summary: Evaluar articulo consignado

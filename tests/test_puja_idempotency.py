@@ -41,6 +41,9 @@ class TestPujaIdempotencyService(unittest.TestCase):
         }
 
         with patch(
+            "app.services.subasta_service.SubastaRepository.puede_participar",
+            return_value=True,
+        ), patch(
             "app.services.subasta_service.PujaRepository.lock_or_create_idempotency_record",
             return_value=record,
         ), patch(
@@ -72,6 +75,9 @@ class TestPujaIdempotencyService(unittest.TestCase):
         }
 
         with patch(
+            "app.services.subasta_service.SubastaRepository.puede_participar",
+            return_value=True,
+        ), patch(
             "app.services.subasta_service.PujaRepository.lock_or_create_idempotency_record",
             return_value=record,
         ):
@@ -93,6 +99,9 @@ class TestPujaIdempotencyService(unittest.TestCase):
         db = MagicMock()
 
         with patch(
+            "app.services.subasta_service.SubastaRepository.puede_participar",
+            return_value=True,
+        ), patch(
             "app.services.subasta_service.PujaRepository.lock_or_create_idempotency_record",
             return_value={"identificador": 10, "_created": True},
         ) as lock_or_create, patch(

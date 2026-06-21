@@ -72,6 +72,7 @@ Rutas reales montadas en `app/api/router.py`. Contrato formal completo: `docs/Sw
 |--------|------|------|-------|
 | POST | `/admin/usuarios/{id}/verificar` | 🔒 ⚠ | `UsuarioVerificacion` (admitido, categoria?, motivoRechazo?). **No llama `_require_admin`** |
 | POST | `/admin/medios-pago/{id}/verificar` | 🔒 ⚠ | `MedioPagoVerificacion`. **No llama `_require_admin`** |
+| POST | `/admin/pagos/procesar-vencimientos` | 👑 | procesa pagos vencidos, genera multas y bloqueos |
 | POST | `/admin/articulos/{id}/evaluar` | 👑 | `ArticuloEvaluacion` → `Articulo`. Sí valida admin |
 | POST | `/admin/subastas` | 🔒 ⚠ | `SubastaCreate` → 201. **No llama `_require_admin`** |
 | POST | `/admin/subastas/{id}/catalogo/items` | 🔒 ⚠ | `CatalogoItemInput` (uno de productoId/articuloId) → 201. **No llama `_require_admin`** |
