@@ -632,7 +632,7 @@ class SubastaRepository:
                 FROM pujos pu
                 JOIN asistentes a ON pu.asistente = a.identificador
                 WHERE a.subasta = %s
-                ORDER BY pu.identificador DESC
+                ORDER BY pu.importe DESC
                 """,
                 (subasta_id,),
             )
