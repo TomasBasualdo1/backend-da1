@@ -180,9 +180,17 @@ class ArticuloRepository:
                     a.documentacion_origen AS "documentacionOrigen",
                     s.nropoliza AS "seguroPoliza",
                     s.compania AS "seguroCompania",
-                    s.importe AS "seguroImporte"
+                    s.importe AS "seguroImporte",
+                    sub.identificador AS "subastaId",
+                    sub.fecha AS "subastaFecha",
+                    sub.hora AS "subastaHora",
+                    sub.estado AS "subastaEstado"
                 FROM articulos a
                 LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
+                LEFT JOIN productos p ON p.seguro = a.seguro_poliza
+                LEFT JOIN itemscatalogo ic ON ic.producto = p.identificador
+                LEFT JOIN catalogos c ON ic.catalogo = c.identificador
+                LEFT JOIN subastas sub ON c.subasta = sub.identificador
                 WHERE a.identificador = %s
                 """,
                 (id,),
@@ -212,9 +220,17 @@ class ArticuloRepository:
                     a.documentacion_origen AS "documentacionOrigen",
                     s.nropoliza AS "seguroPoliza",
                     s.compania AS "seguroCompania",
-                    s.importe AS "seguroImporte"
+                    s.importe AS "seguroImporte",
+                    sub.identificador AS "subastaId",
+                    sub.fecha AS "subastaFecha",
+                    sub.hora AS "subastaHora",
+                    sub.estado AS "subastaEstado"
                 FROM articulos a
                 LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
+                LEFT JOIN productos p ON p.seguro = a.seguro_poliza
+                LEFT JOIN itemscatalogo ic ON ic.producto = p.identificador
+                LEFT JOIN catalogos c ON ic.catalogo = c.identificador
+                LEFT JOIN subastas sub ON c.subasta = sub.identificador
                 WHERE a.duenio_id = %s
                 ORDER BY a.fecha_envio DESC, a.identificador DESC
                 """,

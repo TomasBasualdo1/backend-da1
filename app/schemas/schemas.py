@@ -439,3 +439,7 @@ class Articulo(BaseModel):
     fotos: Optional[List[AnyUrl]] = None
     ubicacion: Optional[str] = Field(None, example='Deposito CABA')
     seguro: Optional[Seguro] = None
+    subastaId: Optional[int] = None
+    subastaFecha: Optional[date] = None
+    subastaHora: Optional[time] = None
+    subastaEstado: Optional[str] = None
