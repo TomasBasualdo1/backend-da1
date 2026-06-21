@@ -26,7 +26,7 @@ Basadas en el código real del repo. Para escribir código nuevo, **imitá el ar
 - Declarar `response_model=` y `status_code=` cuando aplique.
 - Body: usar modelos Pydantic; para multipart usar `Form(...)`/`File(...)`.
 - El `user` (dict del JWT) trae `usuarioId`, `categoria`, `admitido`, `jti`, `exp`.
-- Admin: llamar `_require_admin(user)` (chequea `usuarioId == 1`).
+- Admin: llamar `_require_admin(user)` (chequea `usuarioId == 12`).
 - Registrar el router nuevo en `app/api/router.py` con su `tags`.
 
 ## Services

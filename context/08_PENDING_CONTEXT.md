@@ -37,7 +37,7 @@ Derivadas de [TPO_DAI_1C2026.md](TPO_DAI_1C2026.md), no presentes en el código:
 ## Riesgos / deuda técnica detectada
 
 1. **Autorización admin inconsistente** (alto): solo `/admin/articulos/{id}/evaluar` llama `_require_admin`. `verificar usuarios`, `verificar medios-pago`, `crear subasta` y `agregar item al catálogo` quedan accesibles a **cualquier usuario autenticado**. `/subastas/{id}/cerrar` tampoco valida admin.
-2. **Admin hardcodeado** a `usuarioId == 1`. No escala a múltiples admins; debería ser un rol en BD (`empleados`).
+2. **Admin hardcodeado** a `usuarioId == 12`. No escala a múltiples admins; debería ser un rol en BD (`empleados`).
 3. **`SECRET_KEY` default inseguro** en `config.py` (`"your-secret-key-change-in-production"`). Confirmar que en prod se setea por env.
 4. **CORS totalmente abierto** (`allow_origins=["*"]` + `allow_credentials=True`): combinación no recomendada; acotar orígenes en prod.
 5. **SQL inline en routers** (`notificaciones.py`, partes de `usuarios.py`/`auth.py`): rompe la separación por capas. Deuda a migrar a services/repos.
@@ -49,7 +49,7 @@ Derivadas de [TPO_DAI_1C2026.md](TPO_DAI_1C2026.md), no presentes en el código:
 ## Info útil para pedirle al equipo
 
 - Valores reales de `.env` (DB, Supabase, email): **disponibles en Notion** del equipo. NO commitearlos. Ver [13_SECURITY.md](13_SECURITY.md).
-- ¿Quiénes son admins reales y cómo se modela? ¿Se planea tabla de roles? (hoy admin = `usuarioId == 1`).
+- ¿Quiénes son admins reales y cómo se modela? ¿Se planea tabla de roles? (hoy admin = `usuarioId == 12`).
 - ¿Está vivo el endpoint SSE en prod? ¿Render con cuántos workers?
 - ¿La integración con el "sistema local existente de la empresa" (mencionada en la consigna) está dentro de alcance o es teórica?
 
