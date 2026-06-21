@@ -15,6 +15,7 @@ from app.schemas.schemas import (
 )
 from app.services.admin_service import AdminService
 from app.services.email_service import EmailService
+from app.services.subasta_service import SubastaService
 
 router = APIRouter(prefix="/admin")
 
@@ -71,6 +72,15 @@ async def verify_payment_method(
 ):
     _require_admin(user)
     return AdminService.verify_payment_method(db, id, body.estadoVerificacion.value)
+
+
+@router.post("/pagos/procesar-vencimientos")
+async def process_overdue_payments(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return SubastaService.procesar_vencimientos(db)
 
 
 @router.post("/articulos/{id}/evaluar", response_model=Articulo)

@@ -271,3 +271,115 @@ class UsuarioRepository:
                 (categoria, usuario_id),
             )
         db.commit()
+
+    @staticmethod
+    def get_multas(db: Connection, usuario_id: int) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    identificador AS id,
+                    importe,
+                    estado,
+                    fecha_limite AS "fechaLimite",
+                    motivo
+                FROM multas
+                WHERE cliente_id = %s
+                ORDER BY
+                    CASE estado WHEN 'pendiente' THEN 0 ELSE 1 END,
+                    fecha_limite ASC,
+                    identificador DESC
+                """,
+                (usuario_id,),
+            )
+            rows = cursor.fetchall()
+            for row in rows:
+                if row["importe"] is not None:
+                    row["importe"] = float(row["importe"])
+            return rows
+
+    @staticmethod
+    def get_multa_para_cliente(
+        db: Connection, usuario_id: int, multa_id: int
+    ) -> dict | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    identificador AS id,
+                    cliente_id,
+                    importe,
+                    estado,
+                    fecha_limite AS "fechaLimite",
+                    motivo
+                FROM multas
+                WHERE identificador = %s AND cliente_id = %s
+                """,
+                (multa_id, usuario_id),
+            )
+            row = cursor.fetchone()
+            if row and row["importe"] is not None:
+                row["importe"] = float(row["importe"])
+            return row
+
+    @staticmethod
+    def get_medio_pago_para_cliente(
+        db: Connection, usuario_id: int, medio_pago_id: int
+    ) -> dict | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    identificador AS id,
+                    cliente_id,
+                    estado_verificacion,
+                    moneda,
+                    limite_reservado
+                FROM medios_pago
+                WHERE identificador = %s AND cliente_id = %s
+                """,
+                (medio_pago_id, usuario_id),
+            )
+            row = cursor.fetchone()
+            if row and row["limite_reservado"] is not None:
+                row["limite_reservado"] = float(row["limite_reservado"])
+            return row
+
+    @staticmethod
+    def pagar_multa(db: Connection, multa_id: int, medio_pago_id: int) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE multas
+                SET estado = 'pagada', medio_pago_id = %s
+                WHERE identificador = %s AND estado = 'pendiente'
+                """,
+                (medio_pago_id, multa_id),
+            )
+
+    @staticmethod
+    def tiene_multas_pendientes(db: Connection, usuario_id: int) -> bool:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM multas WHERE cliente_id = %s AND estado = 'pendiente'",
+                (usuario_id,),
+            )
+            return bool(cursor.fetchone())
+
+    @staticmethod
+    def set_multa_activa(db: Connection, usuario_id: int, activa: bool) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "UPDATE clientes_adicionales SET multa_activa = %s WHERE identificador = %s",
+                (activa, usuario_id),
+            )
+
+    @staticmethod
+    def crear_notificacion(
+        db: Connection, usuario_id: int, tipo: str, mensaje: str
+    ) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO notificaciones (persona_id, tipo, mensaje) VALUES (%s, %s, %s)",
+                (usuario_id, tipo, mensaje),
+            )

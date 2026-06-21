@@ -700,6 +700,54 @@ class SubastaRepository:
             return row
 
     @staticmethod
+    def get_pagos_pendientes_vencidos(
+        db: Connection, cliente_id: int | None = None
+    ) -> list[dict]:
+        query = """
+            SELECT
+                identificador AS id,
+                subasta_id AS "subastaId",
+                cliente_id AS "usuarioId",
+                total_pujado AS "totalPujado",
+                comision,
+                total_final AS "totalFinal",
+                moneda,
+                estado,
+                fecha_limite_pago AS "fechaLimitePago"
+            FROM pagos
+            WHERE estado = 'pendiente'
+              AND fecha_limite_pago < NOW()
+        """
+        params: tuple = ()
+        if cliente_id is not None:
+            query += " AND cliente_id = %s"
+            params = (cliente_id,)
+        query += " ORDER BY fecha_limite_pago ASC FOR UPDATE"
+
+        with db.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            for row in rows:
+                for key in ("totalPujado", "comision", "totalFinal"):
+                    if row[key] is not None:
+                        row[key] = float(row[key])
+            return rows
+
+    @staticmethod
+    def marcar_pago_vencido(db: Connection, pago_id: int) -> bool:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE pagos
+                SET estado = 'vencido'
+                WHERE identificador = %s AND estado = 'pendiente'
+                RETURNING identificador
+                """,
+                (pago_id,),
+            )
+            return bool(cursor.fetchone())
+
+    @staticmethod
     def get_medio_pago_para_cliente(db: Connection, cliente_id: int, medio_pago_id: int) -> dict | None:
         with db.cursor() as cursor:
             cursor.execute(
@@ -753,28 +801,102 @@ class SubastaRepository:
             )
 
     @staticmethod
-    def generar_multa(db: Connection, cliente_id: int, importe_pujado: float, motivo: str) -> None:
+    def generar_multa(
+        db: Connection, cliente_id: int, importe_pujado: float, motivo: str
+    ) -> tuple[dict, bool]:
         with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    identificador AS id,
+                    importe,
+                    estado,
+                    fecha_limite AS "fechaLimite",
+                    motivo
+                FROM multas
+                WHERE cliente_id = %s AND motivo = %s
+                ORDER BY identificador DESC
+                LIMIT 1
+                """,
+                (cliente_id, motivo),
+            )
+            existing = cursor.fetchone()
+            if existing:
+                if existing["importe"] is not None:
+                    existing["importe"] = float(existing["importe"])
+                if existing["estado"] == "pendiente":
+                    cursor.execute(
+                        """
+                        UPDATE clientes_adicionales
+                        SET multa_activa = true
+                        WHERE identificador = %s
+                        """,
+                        (cliente_id,),
+                    )
+                return existing, False
+
             multa_importe = importe_pujado * 0.10
             cursor.execute(
                 """
                 INSERT INTO multas (cliente_id, importe, estado, fecha_limite, motivo)
                 VALUES (%s, %s, 'pendiente', NOW() + INTERVAL '72 hours', %s)
+                RETURNING
+                    identificador AS id,
+                    importe,
+                    estado,
+                    fecha_limite AS "fechaLimite",
+                    motivo
                 """,
                 (cliente_id, multa_importe, motivo),
             )
+            multa = cursor.fetchone()
+            if multa["importe"] is not None:
+                multa["importe"] = float(multa["importe"])
             cursor.execute(
                 "UPDATE clientes_adicionales SET multa_activa = true WHERE identificador = %s",
                 (cliente_id,),
             )
+            return multa, True
 
     @staticmethod
-    def bloquear_usuario(db: Connection, cliente_id: int) -> None:
+    def get_multas_pendientes_vencidas(
+        db: Connection, cliente_id: int | None = None
+    ) -> list[dict]:
+        query = """
+            SELECT
+                m.identificador AS id,
+                m.cliente_id,
+                m.fecha_limite AS "fechaLimite",
+                m.motivo,
+                COALESCE(ca.bloqueado, false) AS bloqueado
+            FROM multas m
+            JOIN clientes_adicionales ca ON m.cliente_id = ca.identificador
+            WHERE m.estado = 'pendiente'
+              AND m.fecha_limite < NOW()
+        """
+        params: tuple = ()
+        if cliente_id is not None:
+            query += " AND m.cliente_id = %s"
+            params = (cliente_id,)
+        query += " ORDER BY m.fecha_limite ASC FOR UPDATE OF m, ca"
+
+        with db.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall()
+
+    @staticmethod
+    def bloquear_usuario(db: Connection, cliente_id: int) -> bool:
         with db.cursor() as cursor:
             cursor.execute(
-                "UPDATE clientes_adicionales SET bloqueado = true WHERE identificador = %s",
+                """
+                UPDATE clientes_adicionales
+                SET bloqueado = true
+                WHERE identificador = %s AND bloqueado = false
+                RETURNING identificador
+                """,
                 (cliente_id,),
             )
+            return bool(cursor.fetchone())
 
     # ─────────────────── NOTIFICACIONES ───────────────────
 

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from psycopg import Connection
@@ -11,6 +11,7 @@ from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
 CATEGORIAS_PESO = {"comun": 1, "especial": 2, "plata": 3, "oro": 4, "platino": 5}
 COSTO_ENVIO_SUBASTA = 500.0
+MULTA_PORCENTAJE = 0.10
 
 
 class SubastaService:
@@ -84,6 +85,109 @@ class SubastaService:
     # ─────────────────── PUJAS ───────────────────
 
     @staticmethod
+    def _fecha_vencida(fecha_limite) -> bool:
+        if not fecha_limite:
+            return False
+
+        if isinstance(fecha_limite, str):
+            try:
+                fecha_limite = datetime.fromisoformat(
+                    fecha_limite.replace("Z", "+00:00")
+                )
+            except ValueError:
+                return False
+
+        if isinstance(fecha_limite, datetime):
+            if fecha_limite.tzinfo is None:
+                fecha_limite = fecha_limite.replace(tzinfo=timezone.utc)
+            return fecha_limite < datetime.now(timezone.utc)
+
+        return False
+
+    @staticmethod
+    def procesar_vencimientos(
+        db: Connection, usuario_id: int | None = None
+    ) -> dict:
+        try:
+            pagos_vencidos = list(
+                SubastaRepository.get_pagos_pendientes_vencidos(db, usuario_id)
+                or []
+            )
+            multas_vencidas = list(
+                SubastaRepository.get_multas_pendientes_vencidas(db, usuario_id)
+                or []
+            )
+
+            pagos_procesados = 0
+            multas_creadas = 0
+            usuarios_multa_activa: set[int] = set()
+            usuarios_bloqueados: set[int] = set()
+
+            for pago in pagos_vencidos:
+                pago_id = pago["id"]
+                cliente_id = pago["usuarioId"]
+                subasta_id = pago["subastaId"]
+                total_pujado = float(pago["totalPujado"] or 0.0)
+                motivo = f"Incumplimiento de pago #{pago_id} subasta #{subasta_id}"
+
+                if SubastaRepository.marcar_pago_vencido(db, pago_id):
+                    pagos_procesados += 1
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_id,
+                        "pago",
+                        f"El pago #{pago_id} de la subasta #{subasta_id} vencio.",
+                    )
+
+                multa, creada = SubastaRepository.generar_multa(
+                    db,
+                    cliente_id,
+                    total_pujado,
+                    motivo,
+                )
+                if multa.get("estado") == "pendiente":
+                    usuarios_multa_activa.add(cliente_id)
+                if creada:
+                    multas_creadas += 1
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_id,
+                        "sistema",
+                        f"Se genero una multa del {int(MULTA_PORCENTAJE * 100)}% "
+                        f"(${float(multa['importe']):.2f}) por el pago #{pago_id}.",
+                    )
+
+            for multa in multas_vencidas:
+                cliente_id = multa["cliente_id"]
+                if SubastaRepository.bloquear_usuario(db, cliente_id):
+                    usuarios_bloqueados.add(cliente_id)
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_id,
+                        "sistema",
+                        "Tu usuario fue bloqueado por incumplimiento de obligaciones de pago.",
+                    )
+
+            if (
+                pagos_procesados
+                or multas_creadas
+                or usuarios_multa_activa
+                or usuarios_bloqueados
+            ):
+                db.commit()
+
+            return {
+                "pagosVencidosProcesados": pagos_procesados,
+                "multasCreadas": multas_creadas,
+                "usuariosMarcadosMultaActiva": sorted(usuarios_multa_activa),
+                "usuariosBloqueados": sorted(usuarios_bloqueados),
+                "multasVencidasBloqueantes": len(multas_vencidas),
+            }
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
     def procesar_puja(
         db: Connection,
         subasta_id: int,
@@ -93,6 +197,12 @@ class SubastaService:
         importe: float,
         idempotency_key: str | None = None,
     ) -> dict:
+        SubastaService.procesar_vencimientos(db, usuario_id)
+        if not SubastaRepository.puede_participar(db, usuario_id):
+            raise HTTPException(
+                status_code=403, detail="Usuario bloqueado o con multas pendientes"
+            )
+
         idempotency_key = PujaRepository.normalize_idempotency_key(idempotency_key)
         idempotency_record_id = None
 
@@ -240,6 +350,7 @@ class SubastaService:
     def join_subasta(
         db: Connection, subasta_id: int, usuario_id: int, categoria_usuario: str
     ):
+        SubastaService.procesar_vencimientos(db, usuario_id)
         subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
         if not subasta:
             raise HTTPException(status_code=404, detail="Subasta no encontrada")
@@ -290,6 +401,7 @@ class SubastaService:
         usuario_id: int,
         categoria_usuario: str,
     ) -> None:
+        SubastaService.procesar_vencimientos(db, usuario_id)
         subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
         if not subasta:
             raise HTTPException(status_code=404, detail="Subasta no encontrada")
@@ -421,6 +533,7 @@ class SubastaService:
 
     @staticmethod
     def get_pago(db: Connection, subasta_id: int, usuario_id: int) -> dict:
+        SubastaService.procesar_vencimientos(db, usuario_id)
         pago = SubastaRepository.get_pago_usuario(db, subasta_id, usuario_id)
         if not pago:
             raise HTTPException(
@@ -454,6 +567,13 @@ class SubastaService:
                 raise HTTPException(
                     status_code=409,
                     detail="El pago no se encuentra pendiente",
+                )
+
+            if SubastaService._fecha_vencida(pago.get("fechaLimitePago")):
+                SubastaService.procesar_vencimientos(db, usuario_id)
+                raise HTTPException(
+                    status_code=409,
+                    detail="El pago se encuentra vencido",
                 )
 
             if modo_entrega not in ("envio", "retiro"):

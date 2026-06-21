@@ -76,6 +76,8 @@ Según el TPO: si al pagar el ganador no tiene fondos → **multa del 10% del va
 - Existen los repos `SubastaRepository.generar_multa` (10% + marca `multa_activa`) y `bloquear_usuario`, **pero NO se invocan desde ningún flujo** (código muerto). La generación automática de la multa/bloqueo está **sin cablear** — ver [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md).
 - Sí funciona el lado consulta/pago: `GET /usuarios/me/multas`, `POST /usuarios/me/multas/pagar`. Al pagar la última multa pendiente se limpia `clientes_adicionales.multa_activa`. El plazo de pago de subastas usa `NOW() + INTERVAL '72 hours'`.
 
+> Actualización 2026-06-21: P0.6 backend cableó este flujo con `POST /admin/pagos/procesar-vencimientos` y validación lazy en join/stream/puja/consulta de pago/listado/pago de multas. Ver [19_P0_6_MULTAS_VENCIMIENTOS_BLOQUEO_NOTES.md](19_P0_6_MULTAS_VENCIMIENTOS_BLOQUEO_NOTES.md).
+
 ### Otras reglas de la consigna a tener presentes
 - **Asignación de categoría por investigación externa** al registrarse (refuerza que el registro **debería** evaluarse, no auto-aprobarse).
 - **La categoría puede mejorar** con la diversidad de medios de pago y la actividad en subastas → **no implementado** (la categoría solo se setea al aprobar).

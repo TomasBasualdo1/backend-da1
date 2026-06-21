@@ -274,18 +274,18 @@ Riesgos principales:
 
 #### P0.6 — Implementar flujo de multas, vencimientos y bloqueo
 
-* Estado actual: `generar_multa` y `bloquear_usuario` existen pero no se invocan. `GET /multas` y `POST /multas/pagar` existen. Join y login miran flags de bloqueo/multa, pero no hay job/acción que los active por incumplimiento.
-* Evidencia encontrada: `app/repositories/subasta_repo.py:generar_multa`, `bloquear_usuario`; `app/api/usuarios.py:list_fines`, `pay_fine`; `app/services/subasta_service.py:join_subasta`.
-* Por qué falta: TPO exige multa del 10%, pago antes de participar, 72 hs para presentar fondos y bloqueo por incumplimiento.
+* Estado actual actualizado 2026-06-21: backend implementado con endpoint manual `POST /admin/pagos/procesar-vencimientos`, validacion lazy y pago de multas en service/repository. Frontend de pago de multas queda pendiente porque el entorno de esta corrida bloqueo escritura en `../frontend-da1`.
+* Evidencia encontrada/actualizada: `app/repositories/subasta_repo.py:generar_multa`, `get_pagos_pendientes_vencidos`, `marcar_pago_vencido`, `bloquear_usuario`; `app/services/subasta_service.py:procesar_vencimientos`, `join_subasta`, `procesar_puja`; `app/services/usuario_service.py:pagar_multa`; `app/api/admin.py:process_overdue_payments`.
+* Por qué faltaba: TPO exige multa del 10%, pago antes de participar, 72 hs para presentar fondos y bloqueo por incumplimiento.
 * Fuente de verdad: `context/TPO_DAI_1C2026.md`, spec 10.
 * Archivos involucrados: `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/api/usuarios.py`, posible endpoint/admin job nuevo, `frontend-da1/app/(tabs)/profile.tsx`.
-* Forma correcta de implementarlo: definir disparador: scheduler, endpoint admin o validación lazy al intentar participar/pagar. Aplicar multa al pago vencido/no pagado y bloquear si vence la obligación posterior.
-* Cambios backend: consulta de pagos vencidos; creación de multa 10%; set `multa_activa`; bloqueo si corresponde; evitar duplicar multas.
-* Cambios frontend: botón para pagar multa usando un medio validado; bloquear join visualmente cuando `multaActiva`/`bloqueado`.
-* Cambios DB / migración si aplica: puede no requerir, pero puede convenir agregar marca de multa generada por pago.
-* Tests recomendados: pago vencido genera una sola multa; multa pendiente bloquea join; pagar multa limpia `multa_activa`; usuario bloqueado no loguea.
-* Riesgos: sin scheduler en Render, un flujo automático puede no correr.
-* Dependencias: decisión manual vs automático.
+* Forma implementada: endpoint admin manual + validacion lazy en join/stream/puja/consulta de pago/listar o pagar multas. Aplica multa al pago vencido/no pagado y bloquea si vence la multa pendiente.
+* Cambios backend: consulta de pagos vencidos; creación de multa 10%; set `multa_activa`; bloqueo por multa vencida; duplicados evitados con `motivo` deterministico.
+* Cambios frontend: PENDIENTE por bloqueo de escritura en esta corrida. Sigue faltando CTA/selector de medio validado en perfil.
+* Cambios DB / migración si aplica: no se hizo migracion; queda PENDIENTE DE CONFIRMAR si se agrega `multas.pago_id`.
+* Tests agregados/ejecutados: `tests/test_subasta_multas.py`; pago vencido genera una sola multa; multa pendiente bloquea join; pagar multa limpia `multa_activa`; usuario bloqueado no loguea.
+* Riesgos: sin scheduler en Render, el flujo automatico depende de endpoint manual y lazy triggers.
+* Dependencias: confirmar migracion robusta, scheduler y regla final de bloqueo fuerte.
 * Spec sugerida: `context/specs/15-pagos-multas-vencimientos.md`.
 
 #### P0.7 — Preparar deploy real de entrega y variables de entorno
@@ -692,8 +692,8 @@ Pruebas mínimas:
 - [ ] Pagos generados y pagables desde la app.
 - [ ] Costo de envío definido.
 - [ ] Retiro informa pérdida de seguro.
-- [ ] Multas se generan por incumplimiento y se pueden pagar.
-- [ ] Bloqueos se aplican y se levantan cuando corresponde.
+- [/] Multas se generan por incumplimiento y se pueden pagar. Backend OK; frontend de pago pendiente por bloqueo de escritura.
+- [/] Bloqueos se aplican. Levantamiento automatico de bloqueo fuerte queda PENDIENTE DE CONFIRMAR.
 - [ ] Límite por garantía/cheque certificado validado o justificado fuera de alcance.
 - [ ] Consignación completa: publicar, ver estado, evaluación, aceptar/rechazar tasación, seguro.
 - [ ] Admin puede crear subastas y cargar catálogo.

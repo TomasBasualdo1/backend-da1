@@ -282,32 +282,7 @@ async def list_fines(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    user_id = user["usuarioId"]
-    with db.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT 
-                identificador as id,
-                importe,
-                estado,
-                fecha_limite as "fechaLimite",
-                motivo
-            FROM multas
-            WHERE cliente_id = %s
-            """,
-            (user_id,),
-        )
-        rows = cursor.fetchall()
-        return [
-            Multa(
-                id=row["id"],
-                importe=float(row["importe"]),
-                estado=row["estado"],
-                fechaLimite=row["fechaLimite"],
-                motivo=row["motivo"],
-            )
-            for row in rows
-        ]
+    return [Multa(**multa) for multa in UsuarioService.list_multas(db, user["usuarioId"])]
 
 
 @router.post("/me/multas/pagar")
@@ -316,48 +291,9 @@ async def pay_fine(
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    user_id = user["usuarioId"]
-    with db.cursor() as cursor:
-        # Verify fine ownership and status
-        cursor.execute(
-            "SELECT estado FROM multas WHERE identificador = %s AND cliente_id = %s",
-            (body.multaId, user_id)
-        )
-        fine = cursor.fetchone()
-        if not fine:
-            raise HTTPException(status_code=404, detail="Multa no encontrada")
-        if fine["estado"] == "pagada":
-            raise HTTPException(status_code=400, detail="La multa ya está pagada")
-
-        # Verify payment method ownership and status
-        cursor.execute(
-            "SELECT estado_verificacion FROM medios_pago WHERE identificador = %s AND cliente_id = %s",
-            (body.medioPagoId, user_id)
-        )
-        payment_method = cursor.fetchone()
-        if not payment_method:
-            raise HTTPException(status_code=404, detail="Medio de pago no encontrado")
-        if payment_method["estado_verificacion"] != "validado":
-            raise HTTPException(status_code=400, detail="El medio de pago no está validado")
-
-        # Perform payment
-        cursor.execute(
-            "UPDATE multas SET estado = 'pagada', medio_pago_id = %s WHERE identificador = %s",
-            (body.medioPagoId, body.multaId)
-        )
-
-        # Check if there are any remaining pending fines
-        cursor.execute(
-            "SELECT 1 FROM multas WHERE cliente_id = %s AND estado = 'pendiente'",
-            (user_id,)
-        )
-        remaining = cursor.fetchone()
-        if not remaining:
-            cursor.execute(
-                "UPDATE clientes_adicionales SET multa_activa = false WHERE identificador = %s",
-                (user_id,)
-            )
-
-    db.commit()
-    return {"message": "Multa pagada correctamente"}
-
+    return UsuarioService.pagar_multa(
+        db,
+        user["usuarioId"],
+        body.multaId,
+        body.medioPagoId,
+    )

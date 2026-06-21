@@ -6,7 +6,7 @@ Cosas **no confirmables** solo leyendo el repo, riesgos y deuda. Resolver con el
 
 - **Sentry**: `sentry-sdk` está en `requirements.txt` pero no se vio `sentry_sdk.init()`. ¿Está activo? ¿Dónde se configura el DSN?
 - **`/auth/verify-email`**: endpoint definido pero con cuerpo `pass` (no hace nada). ¿La verificación de email se considera implícita al aprobar el registro? El flujo real de "verificación por email" no está cerrado.
-- **Creación automática de multas (10%) y bloqueo: código muerto.** Existen `SubastaRepository.generar_multa` y `bloquear_usuario`, pero **ningún flujo los llama**. No hay disparador de "el ganador no pagó en 72hs → multa + bloqueo". ¿Falta un job/scheduler que venza pagos y aplique la multa? ¿O acción manual del admin? Hoy simplemente no ocurre.
+- **Creación automática de multas (10%) y bloqueo:** backend P0.6 implementado el 2026-06-21 con endpoint admin manual y validación lazy; ver `context/19_P0_6_MULTAS_VENCIMIENTOS_BLOQUEO_NOTES.md`. Sigue PENDIENTE DE CONFIRMAR si habrá scheduler/worker externo y si conviene migrar `multas.pago_id`.
 - **Cierre de subasta automático**: `/subastas/{id}/cerrar` es manual. ¿Hay (o debería haber) un scheduler que cierre por fecha/hora? No se detectó cron/worker.
 - **`pagos.costo_envio` / `modoEntrega = envio`**: el costo de envío existe en el modelo pero PENDIENTE confirmar dónde/cómo se calcula.
 - **Esquema SQL vs BD real**: el `.sql` es snapshot "for context only". Confirmar contra Supabase antes de depender de columnas nuevas.
@@ -29,7 +29,7 @@ Derivadas de [TPO_DAI_1C2026.md](TPO_DAI_1C2026.md), no presentes en el código:
 
 - **Mejora de categoría**: la consigna dice que la diversidad de medios de pago + la actividad mejoran la categoría del usuario. Hoy la categoría solo se fija al aprobar; no hay mecanismo de upgrade.
 - **Límite de compra por garantía**: si el usuario dejó un monto como garantía (cheque certificado), sus compras no pueden superarlo (`medios_pago.limite_reservado`). **No se valida** al pujar/pagar.
-- **Multa/bloqueo + escalado a justicia**: ver arriba (código muerto). Incluye el bloqueo permanente por incumplimiento.
+- **Multa/bloqueo + escalado a justicia**: backend P0.6 aplica multa y bloqueo fuerte por multa vencida. PENDIENTE DE CONFIRMAR si el hito de bloqueo final debe ser exactamente la multa vencida u otra intervención administrativa.
 - **Subasta "colección"** (juntar muchos artículos de un mismo cliente bajo su nombre): no existe.
 - **Trazabilidad de envío/seguro**: confirmar que el dueño puede ver depósito (`articulos.ubicacion`) y póliza, y el aumento de póliza (existe `/articulos/{id}/seguro/aumentar`, validar end-to-end).
 - **Idempotencia de pujas** (consigna: "no permitir otra puja hasta confirmación"): el `FOR UPDATE` ayuda, pero falta el `Idempotency-Key` / lock del lado cliente-servidor completo.
