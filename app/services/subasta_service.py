@@ -282,6 +282,45 @@ class SubastaService:
         db.commit()
         return {"message": "Has salido de la subasta"}
 
+    @staticmethod
+    def validar_acceso_stream(
+        db: Connection,
+        subasta_id: int,
+        usuario_id: int,
+        categoria_usuario: str,
+    ) -> None:
+        subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
+        if not subasta:
+            raise HTTPException(status_code=404, detail="Subasta no encontrada")
+
+        if subasta["estado"] != "abierta":
+            raise HTTPException(status_code=400, detail="La subasta no está abierta")
+
+        peso_subasta = CATEGORIAS_PESO.get(subasta["categoria"], 1)
+        peso_usuario = CATEGORIAS_PESO.get(categoria_usuario, 1)
+        if peso_usuario < peso_subasta:
+            raise HTTPException(
+                status_code=403,
+                detail="Tu categoría no es suficiente para participar en esta subasta",
+            )
+
+        if not SubastaRepository.puede_participar(db, usuario_id):
+            raise HTTPException(
+                status_code=403, detail="Usuario bloqueado o con multas pendientes"
+            )
+
+        if not SubastaRepository.tiene_medio_pago_validado(db, usuario_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Debes tener al menos un medio de pago validado para participar",
+            )
+
+        if not SubastaRepository.tiene_sesion_activa(db, subasta_id, usuario_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Debes unirte a la subasta para recibir actualizaciones en vivo",
+            )
+
     # ─────────────────── CIERRE ───────────────────
 
     @staticmethod

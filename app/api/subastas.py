@@ -3,9 +3,13 @@ import json
 
 from fastapi import APIRouter, Depends, Header, Request, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from psycopg import Connection
 
-from app.dependencies import get_current_user, get_db, require_admin
+from app.core.database import get_db_connection
+from app.core.security import decode_access_token
+from app.dependencies import get_current_user, get_db, require_admin, security
+from app.services.auth_service import AuthService
 from app.services.subasta_service import SubastaService
 from app.services.streamer import SubastaStreamer
 from app.schemas.schemas import (
@@ -15,6 +19,21 @@ from app.schemas.schemas import (
 )
 
 router = APIRouter(prefix="/subastas")
+
+
+def get_stream_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict:
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    with get_db_connection() as db:
+        if AuthService.is_token_blacklisted(db, payload.get("jti")):
+            raise HTTPException(status_code=401, detail="Token revoked")
+
+    return payload
 
 
 # ─────────────────── LISTADOS PÚBLICOS ───────────────────
@@ -88,12 +107,22 @@ async def leave_auction(
 @router.get("/{id}/stream")
 async def stream_auction(
     id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_stream_user),
 ):
     """
     Endpoint SSE: el frontend se conecta aquí y recibe en tiempo real
     cada nueva puja o cambio de ítem mientras la subasta esté abierta.
     """
+    categoria = user["categoria"].value if hasattr(user["categoria"], "value") else str(user["categoria"])
+    # Validar con una conexion corta para no sostener Postgres durante todo el stream.
+    with get_db_connection() as db:
+        SubastaService.validar_acceso_stream(
+            db,
+            subasta_id=id,
+            usuario_id=user["usuarioId"],
+            categoria_usuario=categoria,
+        )
+
     queue = SubastaStreamer.subscribe(id)
 
     async def event_generator():
@@ -144,10 +173,14 @@ async def place_bid(
         # Notificar a todos los usuarios conectados via SSE
         await SubastaStreamer.broadcast(id, "puja", {
             "itemId": item_id,
+            "usuarioId": user["usuarioId"],
+            "importe": resultado["mejorOfertaActual"],
             "mejorOfertaActual": resultado["mejorOfertaActual"],
             "limiteMinimo": resultado["limiteMinimo"],
             "limiteMaximo": resultado["limiteMaximo"],
             "pujaId": resultado["pujaId"],
+            "moneda": resultado["moneda"],
+            "esGanadoraParcial": resultado["esGanadoraParcial"],
         })
 
     return PujaResponse(**resultado)
