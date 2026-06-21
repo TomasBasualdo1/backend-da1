@@ -9,7 +9,9 @@ from app.schemas.schemas import (
     CatalogoItemInput,
     MedioPagoVerificacion,
     SubastaCreate,
+    Usuario,
     UsuarioVerificacion,
+    UpdateCategoriaRequest,
 )
 from app.services.admin_service import AdminService
 from app.services.email_service import EmailService
@@ -101,3 +103,50 @@ async def add_catalog_item(
 ):
     _require_admin(user)
     return AdminService.add_catalog_item(db, id, body, user.get("usuarioId"))
+
+
+@router.get("/usuarios/pendientes", response_model=list[Usuario])
+async def get_pending_users(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_pending_users(db)
+
+
+@router.get("/usuarios", response_model=list[Usuario])
+async def get_all_users(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_all_users(db)
+
+
+@router.patch("/usuarios/{id}/categoria")
+async def update_user_category(
+    id: int,
+    body: UpdateCategoriaRequest,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.update_user_category(db, id, body.categoria.value)
+
+
+@router.get("/articulos/pendientes")
+async def get_pending_articles(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_pending_articles(db)
+
+
+@router.get("/medios-pago/pendientes")
+async def get_pending_payment_methods(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.get_pending_payment_methods(db)

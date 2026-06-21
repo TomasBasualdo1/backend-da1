@@ -98,6 +98,8 @@ class Usuario(BaseModel):
     bloqueado: Optional[bool] = Field(
         None, description='Si el usuario quedo bloqueado por incumplimiento.'
     )
+    fotoFrente: Optional[str] = None
+    fotoDorso: Optional[str] = None
 
 
 class UsuarioUpdate(BaseModel):
@@ -112,6 +114,10 @@ class UsuarioVerificacion(BaseModel):
     admitido: bool
     categoria: Optional[Categoria] = None
     motivoRechazo: Optional[str] = None
+
+
+class UpdateCategoriaRequest(BaseModel):
+    categoria: Categoria
 
 
 class UsuarioMetricas(BaseModel):

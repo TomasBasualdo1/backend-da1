@@ -172,3 +172,102 @@ class UsuarioRepository:
             )
         db.commit()
         return token
+
+    @staticmethod
+    def get_pending_registrations(db: Connection) -> list[dict]:
+        query = """
+            SELECT 
+                p.identificador as id,
+                p.documento,
+                p.nombre,
+                pa.email,
+                p.direccion,
+                pa.telefono,
+                pa.foto_url as foto,
+                pa.foto_frente as "fotoFrente",
+                pa.foto_dorso as "fotoDorso",
+                c.numeropais as "numeroPais",
+                c.admitido,
+                ca.estado_registro as "estadoRegistro",
+                c.categoria,
+                COALESCE(ca.multa_activa, false) as "multaActiva",
+                COALESCE(ca.bloqueado, false) as bloqueado
+            FROM personas p
+            LEFT JOIN personas_adicionales pa ON p.identificador = pa.identificador
+            JOIN clientes c ON p.identificador = c.identificador
+            LEFT JOIN clientes_adicionales ca ON c.identificador = ca.identificador
+            WHERE ca.estado_registro = 'pendiente'
+            ORDER BY p.identificador ASC
+        """
+        with db.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            results = []
+            for row in rows:
+                user = dict(row)
+                nombre_completo = user["nombre"] or ""
+                name_parts = nombre_completo.split(" ", 1)
+                if len(name_parts) == 2:
+                    user["nombre"] = name_parts[0]
+                    user["apellido"] = name_parts[1]
+                else:
+                    user["apellido"] = ""
+                results.append(user)
+            return results
+
+    @staticmethod
+    def get_all_users(db: Connection) -> list[dict]:
+        query = """
+            SELECT 
+                p.identificador as id,
+                p.documento,
+                p.nombre,
+                pa.email,
+                p.direccion,
+                pa.telefono,
+                pa.foto_url as foto,
+                pa.foto_frente as "fotoFrente",
+                pa.foto_dorso as "fotoDorso",
+                c.numeropais as "numeroPais",
+                c.admitido,
+                ca.estado_registro as "estadoRegistro",
+                c.categoria,
+                COALESCE(ca.multa_activa, false) as "multaActiva",
+                COALESCE(ca.bloqueado, false) as bloqueado
+            FROM personas p
+            LEFT JOIN personas_adicionales pa ON p.identificador = pa.identificador
+            JOIN clientes c ON p.identificador = c.identificador
+            LEFT JOIN clientes_adicionales ca ON c.identificador = ca.identificador
+            ORDER BY p.nombre ASC
+        """
+        with db.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            results = []
+            for row in rows:
+                user = dict(row)
+                nombre_completo = user["nombre"] or ""
+                name_parts = nombre_completo.split(" ", 1)
+                if len(name_parts) == 2:
+                    user["nombre"] = name_parts[0]
+                    user["apellido"] = name_parts[1]
+                else:
+                    user["apellido"] = ""
+                results.append(user)
+            return results
+
+    @staticmethod
+    def update_user_category(db: Connection, usuario_id: int, categoria: str) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM clientes WHERE identificador = %s",
+                (usuario_id,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+            
+            cursor.execute(
+                "UPDATE clientes SET categoria = %s WHERE identificador = %s",
+                (categoria, usuario_id),
+            )
+        db.commit()

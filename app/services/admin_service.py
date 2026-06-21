@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from psycopg import Connection
 
 from app.repositories.articulo_repo import ArticuloRepository
+from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import ArticuloEvaluacion, CatalogoItemInput, SubastaCreate
 from app.services.subasta_service import SubastaService
 
@@ -99,3 +100,44 @@ class AdminService:
         usuario_id: int | None,
     ) -> dict:
         return SubastaService.add_catalog_item(db, subasta_id, data, usuario_id)
+
+    @staticmethod
+    def get_pending_users(db: Connection) -> list[dict]:
+        return UsuarioRepository.get_pending_registrations(db)
+
+    @staticmethod
+    def get_all_users(db: Connection) -> list[dict]:
+        return UsuarioRepository.get_all_users(db)
+
+    @staticmethod
+    def update_user_category(db: Connection, usuario_id: int, categoria: str) -> dict:
+        UsuarioRepository.update_user_category(db, usuario_id, categoria)
+        return {"message": f"Categoría del usuario actualizada a {categoria} exitosamente."}
+
+    @staticmethod
+    def get_pending_articles(db: Connection) -> list[dict]:
+        return ArticuloRepository.get_all_pendientes(db)
+
+    @staticmethod
+    def get_pending_payment_methods(db: Connection) -> list[dict]:
+        query = """
+            SELECT 
+                m.identificador as id,
+                m.cliente_id as "clienteId",
+                m.tipo,
+                m.ultimos_digitos as "ultimosDigitos",
+                m.estado_verificacion as "estadoVerificacion",
+                m.moneda,
+                m.limite_reservado as "limiteReservado",
+                m.pais_banco as "paisBanco",
+                m.es_cuenta_receptora as "esCuentaReceptora",
+                p.nombre as "clienteNombre"
+            FROM medios_pago m
+            JOIN personas p ON m.cliente_id = p.identificador
+            WHERE m.estado_verificacion = 'pendiente'
+            ORDER BY m.identificador ASC
+        """
+        with db.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
