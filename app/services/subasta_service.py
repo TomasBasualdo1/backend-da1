@@ -33,7 +33,25 @@ class SubastaService:
         return SubastaRepository.get_todas(db)
 
     @staticmethod
-    def get_detalle(db: Connection, subasta_id: int, base_url: str) -> dict | None:
+    def get_detalle(
+        db: Connection,
+        subasta_id: int,
+        base_url: str,
+        usuario_id: int,
+        categoria_usuario: str,
+    ) -> dict | None:
+        subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
+        if not subasta:
+            return None
+
+        peso_subasta = CATEGORIAS_PESO.get(subasta["categoria"], 1)
+        peso_usuario = CATEGORIAS_PESO.get(categoria_usuario, 1)
+        if peso_usuario < peso_subasta:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tu categoria no es suficiente para ver el detalle de esta subasta",
+            )
+
         return SubastaRepository.get_detalle(db, subasta_id, base_url)
 
     # ─────────────────── ADMIN ───────────────────

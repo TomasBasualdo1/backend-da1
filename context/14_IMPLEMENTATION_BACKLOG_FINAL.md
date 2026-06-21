@@ -308,19 +308,20 @@ Riesgos principales:
 
 #### P1.1 — Alinear listados/detalles de subastas con Swagger y frontend
 
-* Estado actual: listados no filtran explícitamente abiertas; detalle autenticado no valida acceso por categoría; moneda se hardcodea como `USD`; `subastado` vuelve como `false` para no vendido aunque TS espera `'no'`.
+* Estado P1.1: implementado en `feature/p1-1-auction-listings-details`. Ver `context/20_P1_1_AUCTION_LISTINGS_DETAILS_NOTES.md`.
+* Estado anterior: listados no filtraban explícitamente abiertas; detalle autenticado no validaba acceso por categoría; moneda se hardcodeaba como `USD`; `subastado` volvía como `false` para no vendido aunque TS esperaba `'no'`.
 * Evidencia encontrada: `app/repositories/subasta_repo.py:get_publicas`, `get_detalle`, `schemas.py:Subastado`, `frontend-da1/src/types/auction.ts`.
 * Por qué falta: contrato y UI esperan semántica estable para públicas/autenticadas.
 * Fuente de verdad: Swagger y spec 05.
 * Archivos involucrados: `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v4.YAML`, `frontend-da1/src/types/auction.ts`, pantallas de subastas.
 * Forma correcta de implementarlo: filtrar estado según contrato; definir si autenticado puede ver todas o sólo elegibles; corregir enum `Subastado` o normalizar frontend/backend de forma consistente.
-* Cambios backend: ajustar queries y response shapes.
-* Cambios frontend: tolerar `false` temporalmente o migrar a `'no'` cuando backend/schema se corrijan.
-* Cambios DB / migración si aplica: si se persiste moneda, requiere cambio de esquema.
-* Tests recomendados: públicas no devuelven cerradas; público no ve precio base; autenticado ve precio base.
+* Cambios backend: queries filtradas por `estado='abierta'` en listados, detalle público abierto, validación de categoría en detalle autenticado, `Subastado` `si/no`.
+* Cambios frontend: normalización defensiva en `auctionService` y mensaje claro para `403` de detalle autenticado.
+* Cambios DB / migración si aplica: no se migra en P1.1; moneda real por subasta queda en P2.3.
+* Tests recomendados: cubiertos por `tests/test_subasta_listados_detalles.py`; ver nota P1.1 para validación ejecutada.
 * Riesgos: cambiar response puede romper UI actual.
-* Dependencias: decisión sobre moneda.
-* Spec sugerida: actualizar spec 05.
+* Dependencias: PENDIENTE DE CONFIRMAR decisión sobre moneda real por subasta.
+* Spec sugerida: spec 05 queda alineada en backend/frontend; tracker frontend actualizado puntualmente.
 
 #### P1.2 — Completar UI admin para usuarios, medios, artículos, subastas y catálogo
 
@@ -684,7 +685,7 @@ Pruebas mínimas:
 - [ ] Login/logout/reset funcionan con mensajes claros.
 - [ ] Endpoints admin cerrados a usuarios comunes.
 - [ ] Medios de pago se pueden crear y verificar por admin.
-- [ ] Subastas públicas/autenticadas muestran datos correctos y consistentes.
+- [x] Subastas públicas/autenticadas muestran datos correctos y consistentes para P1.1.
 - [ ] Join valida categoría, medio verificado, multa/bloqueo y sesión activa.
 - [ ] SSE actualiza la pantalla live en tiempo real.
 - [ ] Pujas tienen lock e idempotencia.

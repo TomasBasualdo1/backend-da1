@@ -74,7 +74,18 @@ async def get_auction_detail(
     user: dict = Depends(get_current_user),
 ):
     base_url = str(request.base_url).rstrip("/")
-    subasta = SubastaService.get_detalle(db, id, base_url)
+    categoria = (
+        user["categoria"].value
+        if hasattr(user["categoria"], "value")
+        else str(user["categoria"])
+    )
+    subasta = SubastaService.get_detalle(
+        db,
+        id,
+        base_url,
+        usuario_id=user["usuarioId"],
+        categoria_usuario=categoria,
+    )
     if not subasta:
         raise HTTPException(status_code=404, detail="Subasta no encontrada")
     return subasta

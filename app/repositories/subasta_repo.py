@@ -4,9 +4,26 @@ from psycopg import Connection
 from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
 
+DEFAULT_SUBASTA_MONEDA = "USD"
+
+
 class SubastaRepository:
 
     # ─────────────────────── LISTADOS ───────────────────────
+
+    @staticmethod
+    def _normalizar_subastado(value) -> str:
+        return "si" if value == "si" else "no"
+
+    @staticmethod
+    def _normalizar_fotos(value) -> list:
+        if not value:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [value]
+        return list(value)
 
     @staticmethod
     def _resolve_catalog_responsable(db: Connection, usuario_id: int | None) -> int:
@@ -296,16 +313,35 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    'USD' AS moneda
+                    %s AS moneda
                 FROM subastas s
+                WHERE s.estado = 'abierta'
                 ORDER BY s.fecha, s.hora
-                """
+                """,
+                (DEFAULT_SUBASTA_MONEDA,),
             )
             return cursor.fetchall()
 
     @staticmethod
     def get_todas(db: Connection) -> list[dict]:
-        return SubastaRepository.get_publicas(db)
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    s.identificador AS id,
+                    s.fecha,
+                    s.hora::text AS hora,
+                    CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
+                    s.categoria,
+                    s.ubicacion,
+                    %s AS moneda
+                FROM subastas s
+                WHERE s.estado = 'abierta'
+                ORDER BY s.fecha, s.hora
+                """,
+                (DEFAULT_SUBASTA_MONEDA,),
+            )
+            return cursor.fetchall()
 
     @staticmethod
     def get_publica_detalle(db: Connection, subasta_id: int, base_url: str) -> dict | None:
@@ -319,11 +355,12 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    'USD' AS moneda
+                    %s AS moneda
                 FROM subastas s
                 WHERE s.identificador = %s
+                  AND s.estado = 'abierta'
                 """,
-                (subasta_id,),
+                (DEFAULT_SUBASTA_MONEDA, subasta_id),
             )
             subasta = cursor.fetchone()
             if not subasta:
@@ -353,8 +390,10 @@ class SubastaRepository:
             for item in catalog_rows:
                 if item["mejorOfertaActual"] is not None:
                     item["mejorOfertaActual"] = float(item["mejorOfertaActual"])
-                item["subastado"] = "si" if item.get("subastado") == "si" else False
-                item["fotos"] = item.get("fotos") or []
+                item["subastado"] = SubastaRepository._normalizar_subastado(
+                    item.get("subastado")
+                )
+                item["fotos"] = SubastaRepository._normalizar_fotos(item.get("fotos"))
 
             subasta["catalogo"] = catalog_rows
             return subasta
@@ -371,11 +410,11 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    'USD' AS moneda
+                    %s AS moneda
                 FROM subastas s
                 WHERE s.identificador = %s
                 """,
-                (subasta_id,),
+                (DEFAULT_SUBASTA_MONEDA, subasta_id),
             )
             subasta = cursor.fetchone()
             if not subasta:
@@ -419,8 +458,10 @@ class SubastaRepository:
                     item["limiteMinimo"] = mejor_oferta + (precio_base * 0.01)
                     item["limiteMaximo"] = mejor_oferta + (precio_base * 0.20)
 
-                item["subastado"] = "si" if item.get("subastado") == "si" else False
-                item["fotos"] = item.get("fotos") or []
+                item["subastado"] = SubastaRepository._normalizar_subastado(
+                    item.get("subastado")
+                )
+                item["fotos"] = SubastaRepository._normalizar_fotos(item.get("fotos"))
 
             subasta["catalogo"] = catalog_rows
             return subasta
