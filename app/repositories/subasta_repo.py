@@ -618,7 +618,7 @@ class SubastaRepository:
     # ─────────────────── HISTORIAL ───────────────────
 
     @staticmethod
-    def get_historial_pujas(db: Connection, subasta_id: int, cliente_id: int) -> list[dict]:
+    def get_historial_pujas(db: Connection, subasta_id: int) -> list[dict]:
         with db.cursor() as cursor:
             cursor.execute(
                 """
@@ -631,10 +631,10 @@ class SubastaRepository:
                     pu.ganador = 'si' AS "esGanadoraParcial"
                 FROM pujos pu
                 JOIN asistentes a ON pu.asistente = a.identificador
-                WHERE a.subasta = %s AND a.cliente = %s
-                ORDER BY pu.identificador
+                WHERE a.subasta = %s
+                ORDER BY pu.importe DESC
                 """,
-                (subasta_id, cliente_id),
+                (subasta_id,),
             )
             rows = cursor.fetchall()
             for r in rows:

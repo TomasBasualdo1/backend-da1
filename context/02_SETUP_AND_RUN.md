@@ -80,6 +80,6 @@ No hay framework de migraciones (Alembic, etc.). El esquema se administra como S
 
 - **App no arranca**: casi siempre por `.env` (faltan `DATABASE_URL`/Supabase, o email mal configurado → `ValueError` en `Settings`).
 - **401 en endpoints protegidos**: token ausente/expirado o en `blacklisted_tokens` (post-logout).
-- **403 "solo administradores"**: la acción requiere ser `usuarioId == 1`.
+- **403 "solo administradores"**: la acción requiere ser `usuarioId == 12`.
 - **Cambios que "no se guardan"**: falta `db.commit()` en el service/endpoint (no hay autocommit).
 - **CORS**: está abierto a todo (`allow_origins=["*"]`); no debería dar problemas en dev.

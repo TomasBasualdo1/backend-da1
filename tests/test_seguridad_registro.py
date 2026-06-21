@@ -106,7 +106,7 @@ class TestRegistroPendiente(unittest.TestCase):
 class TestAdminGuards(unittest.TestCase):
     def setUp(self):
         self.normal_user = {"usuarioId": 2, "documento": "222"}
-        self.admin_user = {"usuarioId": 1, "documento": "1"}
+        self.admin_user = {"usuarioId": 12, "documento": "1"}
 
     def test_usuario_comun_no_puede_verificar_usuarios(self):
         with patch("app.api.admin.UsuarioRepository.aprobar_registro") as aprobar:

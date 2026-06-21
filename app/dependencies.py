@@ -31,7 +31,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 
 def require_admin(user: dict) -> None:
-    if user.get("usuarioId") != 1:
+    if user.get("usuarioId") != 12:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No autorizado (solo administradores).",

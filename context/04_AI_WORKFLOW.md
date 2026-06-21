@@ -35,7 +35,7 @@ Cómo debe trabajar una IA (o dev nuevo) en este repo **antes de tocar código**
 - **Nombres de columnas**: snake_case en BD; no asumir camelCase. Mirá el `.sql`.
 - **Nombres de campos JSON**: mezcla camel/snake. Mirá `schemas.py`.
 - **Quién commitea**: el commit lo hace el service/endpoint, no el repo.
-- **Quién es admin**: hoy es `usuarioId == 1`, no un rol.
+- **Quién es admin**: hoy es `usuarioId == 12`, no un rol.
 - **Si una columna existe**: el `.sql` es snapshot; confirmá contra la BD real si vas a depender de algo nuevo.
 - **Tablas duales**: hay `productos`/`fotos` (legado, sistema de la empresa) **y** `articulos`/`fotos_adicionales` (consignación nueva). No confundirlas — ver [11_DATABASE.md](11_DATABASE.md).
 

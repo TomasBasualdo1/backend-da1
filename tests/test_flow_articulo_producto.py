@@ -120,7 +120,7 @@ class TestFlowArticuloProducto(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 403)
 
     def test_evaluar_articulo_permite_admin(self):
-        admin_user = {"usuarioId": 1, "documento": "1"}
+        admin_user = {"usuarioId": 12, "documento": "1"}
 
         with patch(
             "app.api.admin.AdminService.evaluate_article",

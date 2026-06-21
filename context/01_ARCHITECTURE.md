@@ -52,7 +52,7 @@ PostgreSQL (Supabase)
 - **SQL crudo, sin ORM.** Se usa `psycopg3` con `row_factory=dict_row`. Las filas son `dict`. Las queries seleccionan con alias en `camelCase` cuando el response Pydantic lo espera (ej. `fecha_hora as "fechaHora"`).
 - **Transacciones manuales.** El service hace `db.commit()` explícito. La conexión se cierra en el `finally` de `get_db_connection`. **No hay autocommit.** Si olvidás `commit()`, los cambios se pierden.
 - **Auth stateless + blacklist.** JWT firmado HS256 con `jti`. El logout inserta el `jti` en `blacklisted_tokens`; `get_current_user` rechaza tokens en blacklist. Claims del token: `usuarioId`, `categoria`, `admitido`, `exp`, `jti`.
-- **Admin = usuario id 1.** No hay tabla de roles para la API: el chequeo de admin es `user.get("usuarioId") != 1` (`app/api/admin.py:_require_admin`). Decisión simplificada; ver [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md).
+- **Admin = usuario id 12.** No hay tabla de roles para la API: el chequeo de admin es `user.get("usuarioId") != 12` (`app/api/admin.py:_require_admin`). Decisión simplificada; ver [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md).
 - **SSE en memoria (no persistente).** `SubastaStreamer._listeners` es un dict en memoria del proceso. No sobrevive reinicios ni escala horizontalmente (multiworker rompería el broadcast). Adecuado para 1 worker.
 - **Storage vía Supabase.** `StorageService.upload_file` hace PUT directo al bucket `documentos`. `uploads.py` también ofrece presigned URLs sobre el bucket `imagenes`.
 - **Doble esquema de modelos.** `app/schemas/schemas.py` está autogenerado desde `Swagger_v4.YAML` (incluye nombres como `Estado1`, `Tipo2` por el codegen). Los repositorios mapean nombres de columnas snake_case del SQL a los campos camelCase de los schemas.

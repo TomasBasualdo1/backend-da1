@@ -36,7 +36,7 @@ python -m unittest tests.test_usuarios -v
    - `POST /auth/registro/paso2` (token + password).
    - `POST /auth/login` → obtener `access_token`.
    - Con Bearer: `GET /usuarios/me`, `GET /subastas`, `POST /subastas/{id}/join`, `POST /subastas/{id}/items/{item_id}/pujar`.
-   - Admin (`usuarioId == 1`): `POST /admin/subastas`, `POST /admin/articulos/{id}/evaluar`.
+   - Admin (`usuarioId == 12`): `POST /admin/subastas`, `POST /admin/articulos/{id}/evaluar`.
 3. Para SSE: conectarse a `GET /subastas/{id}/stream` (curl con `-N`) y pujar desde otra sesión para ver el evento.
 
 ## Checklist antes de commitear
