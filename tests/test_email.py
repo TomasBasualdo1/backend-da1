@@ -169,5 +169,42 @@ class TestConfigValidation(unittest.TestCase):
         )
         self.assertEqual(cfg.email_provider, "smtp")
 
+    def test_default_secret_allowed_in_development(self):
+        from app.config import Settings
+        cfg = Settings(
+            database_url="postgresql://localhost",
+            supabase_url="http://localhost",
+            supabase_service_role_key="key",
+            email_provider="sendgrid",
+            email_api_key="sendgrid-api-key",
+        )
+        self.assertEqual(cfg.app_env, "development")
+
+    def test_default_secret_rejected_in_production(self):
+        from app.config import Settings
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError) as ctx:
+            Settings(
+                app_env="production",
+                database_url="postgresql://localhost",
+                supabase_url="http://localhost",
+                supabase_service_role_key="key",
+                email_provider="sendgrid",
+                email_api_key="sendgrid-api-key",
+            )
+        self.assertIn("secret_key must be set to a non-default value", str(ctx.exception))
+
+    def test_custom_secret_allowed_in_production(self):
+        from app.config import Settings
+        cfg = Settings(
+            app_env="production",
+            database_url="postgresql://localhost",
+            supabase_url="http://localhost",
+            supabase_service_role_key="key",
+            secret_key="a-long-random-secret-for-production-tests",
+            email_provider="sendgrid",
+            email_api_key="sendgrid-api-key",
+        )
+        self.assertEqual(cfg.app_env, "production")
 
 

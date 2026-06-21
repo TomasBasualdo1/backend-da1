@@ -3,11 +3,15 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
+DEFAULT_SECRET_KEY = "your-secret-key-change-in-production"
+
+
 class Settings(BaseSettings):
+    app_env: str = "development"
     database_url: str
     supabase_url: str
     supabase_service_role_key: str
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str = DEFAULT_SECRET_KEY
     access_token_expire_minutes: int = 30
 
     smtp_host: str = "smtp.gmail.com"
@@ -20,7 +24,12 @@ class Settings(BaseSettings):
     email_from: Optional[str] = None
 
     @model_validator(mode="after")
-    def validate_email_config(self) -> "Settings":
+    def validate_config(self) -> "Settings":
+        self.app_env = (self.app_env or "development").lower().strip()
+        if self.app_env in ("production", "prod"):
+            if not self.secret_key or self.secret_key.strip() == DEFAULT_SECRET_KEY:
+                raise ValueError("secret_key must be set to a non-default value when app_env is 'production'")
+
         prov = self.email_provider.lower().strip()
         if prov not in ("smtp", "resend", "sendgrid"):
             import logging
@@ -45,4 +54,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

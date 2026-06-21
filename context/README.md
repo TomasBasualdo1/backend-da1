@@ -23,6 +23,7 @@ Documentación contextual del backend del **Sistema de Subastas**. Su objetivo e
 | 12 | [13_SECURITY.md](13_SECURITY.md) | Manejo de secretos, hallazgos de seguridad, usuario de prueba. |
 | 13 | [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md) | Lo que no se pudo confirmar / riesgos / deuda. |
 | 14 | [09_CONTEXT_MAINTENANCE.md](09_CONTEXT_MAINTENANCE.md) | Qué docs viejos había y qué se hizo con ellos. |
+| 15 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
 
 ## Fuentes de verdad del repo
 

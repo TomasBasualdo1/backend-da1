@@ -38,7 +38,7 @@ paths:
               $ref: "#/components/schemas/RegistroPaso1"
       responses:
         "201":
-          description: Registro inicial creado. Se envio email para el paso 2.
+          description: Registro inicial creado. Queda pendiente de aprobacion por la empresa.
         "400":
           description: Error de validacion en los datos enviados.
         "409":
