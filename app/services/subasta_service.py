@@ -10,6 +10,7 @@ from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
 
 CATEGORIAS_PESO = {"comun": 1, "especial": 2, "plata": 3, "oro": 4, "platino": 5}
+COSTO_ENVIO_SUBASTA = 500.0
 
 
 class SubastaService:
@@ -325,77 +326,84 @@ class SubastaService:
 
     @staticmethod
     def cerrar_subasta(db: Connection, subasta_id: int):
-        subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
-        if not subasta:
-            raise HTTPException(status_code=404, detail="Subasta no encontrada")
-        if subasta["estado"] == "cerrada":
-            raise HTTPException(status_code=400, detail="La subasta ya está cerrada")
+        try:
+            subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
+            if not subasta:
+                raise HTTPException(status_code=404, detail="Subasta no encontrada")
+            if subasta["estado"] == "cerrada":
+                raise HTTPException(status_code=400, detail="La subasta ya está cerrada")
 
-        items = SubastaRepository.obtener_items_con_pujas(db, subasta_id)
-        pagos_por_cliente: dict[int, dict] = defaultdict(
-            lambda: {"total_pujado": 0.0, "comision": 0.0}
-        )
-
-        for item in items:
-            item_id = item["item_id"]
-            precio_base = float(item["preciobase"])
-            comision_item = float(item["comision"])
-            producto_id = item["producto"]
-            duenio_id = item["duenio"]
-
-            if item["puja_id"]:
-                cliente_ganador = item["cliente_ganador"]
-                importe_final = float(item["puja_importe"])
-
-                SubastaRepository.cerrar_item(db, item_id, item["puja_id"])
-                SubastaRepository.registrar_venta(
-                    db,
-                    subasta_id,
-                    duenio_id,
-                    producto_id,
-                    cliente_ganador,
-                    importe_final,
-                    comision_item,
-                )
-
-                pagos_por_cliente[cliente_ganador]["total_pujado"] += importe_final
-                pagos_por_cliente[cliente_ganador]["comision"] += comision_item
-
-                SubastaRepository.crear_notificacion(
-                    db,
-                    cliente_ganador,
-                    "subasta",
-                    f"¡Felicidades! Ganaste el ítem #{item_id} por ${importe_final:.2f}. "
-                    f"Comisión: ${comision_item:.2f}. Tenés 72hs para abonar.",
-                )
-            else:
-                SubastaRepository.cerrar_item(db, item_id, None)
-                SubastaRepository.crear_notificacion(
-                    db,
-                    duenio_id,
-                    "subasta",
-                    f"Tu artículo #{producto_id} fue adquirido por la empresa al precio base (${precio_base:.2f}).",
-                )
-
-        for cliente_id, totales in pagos_por_cliente.items():
-            SubastaRepository.generar_pago(
-                db,
-                subasta_id,
-                cliente_id,
-                totales["total_pujado"],
-                totales["comision"],
-                "USD",
+            items = SubastaRepository.obtener_items_con_pujas(db, subasta_id)
+            pagos_por_cliente: dict[int, dict] = defaultdict(
+                lambda: {"total_pujado": 0.0, "comision": 0.0}
             )
 
-        SubastaRepository.marcar_subasta_cerrada(db, subasta_id)
-        SubastaRepository.finalizar_sesiones(db, subasta_id)
-        db.commit()
+            for item in items:
+                item_id = item["item_id"]
+                precio_base = float(item["preciobase"])
+                comision_item = float(item["comision"])
+                producto_id = item["producto"]
+                duenio_id = item["duenio"]
 
-        return {
-            "message": "Subasta cerrada exitosamente",
-            "itemsCerrados": len(items),
-            "pagosGenerados": len(pagos_por_cliente),
-        }
+                if item["puja_id"]:
+                    cliente_ganador = item["cliente_ganador"]
+                    importe_final = float(item["puja_importe"])
+
+                    SubastaRepository.cerrar_item(db, item_id, item["puja_id"])
+                    SubastaRepository.registrar_venta(
+                        db,
+                        subasta_id,
+                        duenio_id,
+                        producto_id,
+                        cliente_ganador,
+                        importe_final,
+                        comision_item,
+                    )
+
+                    pagos_por_cliente[cliente_ganador]["total_pujado"] += importe_final
+                    pagos_por_cliente[cliente_ganador]["comision"] += comision_item
+
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_ganador,
+                        "subasta",
+                        f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
+                        f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
+                    )
+                else:
+                    SubastaRepository.cerrar_item(db, item_id, None)
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        duenio_id,
+                        "subasta",
+                        f"Tu articulo #{producto_id} fue adquirido por la empresa al precio base (${precio_base:.2f}).",
+                    )
+
+            for cliente_id, totales in pagos_por_cliente.items():
+                SubastaRepository.generar_pago(
+                    db,
+                    subasta_id,
+                    cliente_id,
+                    totales["total_pujado"],
+                    totales["comision"],
+                    "USD",
+                )
+
+            SubastaRepository.marcar_subasta_cerrada(db, subasta_id)
+            SubastaRepository.finalizar_sesiones(db, subasta_id)
+            db.commit()
+
+            return {
+                "message": "Subasta cerrada exitosamente",
+                "itemsCerrados": len(items),
+                "pagosGenerados": len(pagos_por_cliente),
+            }
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
 
     # ─────────────────── HISTORIAL ───────────────────
 
@@ -431,41 +439,95 @@ class SubastaService:
         direccion_envio: str | None,
         acepta_perder_seguro: bool,
     ):
-        pago = SubastaRepository.get_pago_usuario(db, subasta_id, usuario_id)
-        if not pago:
-            raise HTTPException(
-                status_code=404,
-                detail="No tenés pagos pendientes en esta subasta",
+        try:
+            pago = SubastaRepository.get_pago_usuario(db, subasta_id, usuario_id)
+            if not pago:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No tenes pagos pendientes en esta subasta",
+                )
+
+            if pago["estado"] == "pagado":
+                raise HTTPException(status_code=400, detail="El pago ya fue realizado")
+
+            if pago["estado"] != "pendiente":
+                raise HTTPException(
+                    status_code=409,
+                    detail="El pago no se encuentra pendiente",
+                )
+
+            if modo_entrega not in ("envio", "retiro"):
+                raise HTTPException(status_code=400, detail="Modo de entrega invalido")
+
+            direccion_normalizada = direccion_envio.strip() if direccion_envio else None
+            if modo_entrega == "envio" and not direccion_normalizada:
+                raise HTTPException(
+                    status_code=400,
+                    detail="La direccion de envio es obligatoria",
+                )
+
+            if modo_entrega == "retiro":
+                if not acepta_perder_seguro:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Debe aceptar la perdida de seguro para retirar",
+                    )
+                direccion_normalizada = None
+                acepta_perder_seguro = True
+
+            medio = SubastaRepository.get_medio_pago_para_cliente(
+                db,
+                usuario_id,
+                medio_pago_id,
+            )
+            if not medio:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Medio de pago no autorizado para este usuario",
+                )
+
+            if medio["estado_verificacion"] != "validado":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Medio de pago no validado",
+                )
+
+            if medio["moneda"] != pago["moneda"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Moneda invalida para este pago",
+                )
+
+            costo_envio = COSTO_ENVIO_SUBASTA if modo_entrega == "envio" else 0.0
+            total_final = float(pago["totalPujado"]) + float(pago["comision"]) + costo_envio
+            limite_reservado = float(medio["limite_reservado"] or 0.0)
+            if limite_reservado > 0 and limite_reservado < total_final:
+                raise HTTPException(status_code=400, detail="Fondos insuficientes")
+
+            SubastaRepository.confirmar_pago(
+                db,
+                pago["id"],
+                medio_pago_id,
+                modo_entrega,
+                direccion_normalizada,
+                acepta_perder_seguro,
+                costo_envio,
+                total_final,
             )
 
-        if pago["estado"] == "pagado":
-            raise HTTPException(status_code=400, detail="El pago ya fue realizado")
-
-        if not SubastaRepository.tiene_medio_pago_validado(db, usuario_id):
-            raise HTTPException(
-                status_code=403, detail="No tenés un medio de pago validado"
+            SubastaRepository.crear_notificacion(
+                db,
+                usuario_id,
+                "pago",
+                f"Pago confirmado por ${total_final:.2f} para la subasta #{subasta_id}. "
+                f"Modo de entrega: {modo_entrega}.",
             )
+            db.commit()
 
-        if modo_entrega == "retiro":
-            acepta_perder_seguro = True
-
-        SubastaRepository.confirmar_pago(
-            db,
-            pago["id"],
-            medio_pago_id,
-            modo_entrega,
-            direccion_envio,
-            acepta_perder_seguro,
-        )
-        db.commit()
-
-        SubastaRepository.crear_notificacion(
-            db,
-            usuario_id,
-            "pago",
-            f"Pago confirmado por ${pago['totalFinal']:.2f} para la subasta #{subasta_id}. "
-            f"Modo de entrega: {modo_entrega}.",
-        )
-        db.commit()
-
-        return {"message": "Pago confirmado exitosamente"}
+            return {"message": "Pago confirmado exitosamente"}
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise

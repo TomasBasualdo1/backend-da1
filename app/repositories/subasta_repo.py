@@ -609,6 +609,20 @@ class SubastaRepository:
     @staticmethod
     def generar_pago(db: Connection, subasta_id: int, cliente_id: int, total_pujado: float, comision: float, moneda: str) -> int:
         with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT identificador
+                FROM pagos
+                WHERE subasta_id = %s AND cliente_id = %s
+                ORDER BY identificador DESC
+                LIMIT 1
+                """,
+                (subasta_id, cliente_id),
+            )
+            existing = cursor.fetchone()
+            if existing:
+                return existing["identificador"]
+
             total_final = total_pujado + comision
             cursor.execute(
                 """
@@ -686,12 +700,35 @@ class SubastaRepository:
             return row
 
     @staticmethod
-    def confirmar_pago(db: Connection, pago_id: int, medio_pago_id: int, modo_entrega: str, direccion_envio: str | None, acepta_perder_seguro: bool) -> None:
+    def get_medio_pago_para_cliente(db: Connection, cliente_id: int, medio_pago_id: int) -> dict | None:
         with db.cursor() as cursor:
-            costo_envio = 0.0
-            if modo_entrega == "envio":
-                costo_envio = 500.0  # Costo fijo de envio simplificado
+            cursor.execute(
+                """
+                SELECT
+                    identificador AS id,
+                    cliente_id,
+                    estado_verificacion,
+                    moneda,
+                    limite_reservado
+                FROM medios_pago
+                WHERE identificador = %s AND cliente_id = %s
+                """,
+                (medio_pago_id, cliente_id),
+            )
+            return cursor.fetchone()
 
+    @staticmethod
+    def confirmar_pago(
+        db: Connection,
+        pago_id: int,
+        medio_pago_id: int,
+        modo_entrega: str,
+        direccion_envio: str | None,
+        acepta_perder_seguro: bool,
+        costo_envio: float,
+        total_final: float,
+    ) -> None:
+        with db.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE pagos
@@ -700,11 +737,19 @@ class SubastaRepository:
                     modo_entrega = %s,
                     direccion_envio = %s,
                     costo_envio = %s,
-                    total_final = total_pujado + comision + %s,
+                    total_final = %s,
                     acepta_perder_seguro = %s
                 WHERE identificador = %s
                 """,
-                (medio_pago_id, modo_entrega, direccion_envio, costo_envio, costo_envio, acepta_perder_seguro, pago_id),
+                (
+                    medio_pago_id,
+                    modo_entrega,
+                    direccion_envio,
+                    costo_envio,
+                    total_final,
+                    acepta_perder_seguro,
+                    pago_id,
+                ),
             )
 
     @staticmethod
