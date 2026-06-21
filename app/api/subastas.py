@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Header, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from psycopg import Connection
 
@@ -124,6 +124,7 @@ async def place_bid(
     id: int,
     item_id: int,
     body: PujaRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
@@ -135,16 +136,19 @@ async def place_bid(
         usuario_id=user["usuarioId"],
         categoria_usuario=categoria,
         importe=body.importe,
+        idempotency_key=idempotency_key,
     )
 
-    # Notificar a todos los usuarios conectados via SSE
-    await SubastaStreamer.broadcast(id, "puja", {
-        "itemId": item_id,
-        "mejorOfertaActual": resultado["mejorOfertaActual"],
-        "limiteMinimo": resultado["limiteMinimo"],
-        "limiteMaximo": resultado["limiteMaximo"],
-        "pujaId": resultado["pujaId"],
-    })
+    is_replay = bool(resultado.pop("_idempotentReplay", False))
+    if not is_replay:
+        # Notificar a todos los usuarios conectados via SSE
+        await SubastaStreamer.broadcast(id, "puja", {
+            "itemId": item_id,
+            "mejorOfertaActual": resultado["mejorOfertaActual"],
+            "limiteMinimo": resultado["limiteMinimo"],
+            "limiteMaximo": resultado["limiteMaximo"],
+            "pujaId": resultado["pujaId"],
+        })
 
     return PujaResponse(**resultado)
 
