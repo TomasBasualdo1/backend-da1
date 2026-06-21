@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from fastapi import HTTPException, status
 from psycopg import Connection
 
+from app.repositories.puja_repo import PujaRepository
 from app.repositories.subasta_repo import SubastaRepository
 from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
@@ -89,86 +90,148 @@ class SubastaService:
         usuario_id: int,
         categoria_usuario: str,
         importe: float,
+        idempotency_key: str | None = None,
     ) -> dict:
-        asistente_id = SubastaRepository.get_asistente_id(db, subasta_id, usuario_id)
-        if not asistente_id:
-            raise HTTPException(
-                status_code=403, detail="Debes unirte a la subasta para poder pujar"
+        idempotency_key = PujaRepository.normalize_idempotency_key(idempotency_key)
+        idempotency_record_id = None
+
+        try:
+            if idempotency_key:
+                idempotency_record = (
+                    PujaRepository.lock_or_create_idempotency_record(
+                        db,
+                        usuario_id,
+                        subasta_id,
+                        item_id,
+                        importe,
+                        idempotency_key,
+                    )
+                )
+                if idempotency_record:
+                    if idempotency_record.get("_created"):
+                        idempotency_record_id = idempotency_record["identificador"]
+                    else:
+                        if (
+                            idempotency_record["subasta_id"] != subasta_id
+                            or idempotency_record["item_id"] != item_id
+                            or float(idempotency_record["importe"]) != float(importe)
+                        ):
+                            raise HTTPException(
+                                status_code=status.HTTP_409_CONFLICT,
+                                detail=(
+                                    "Idempotency-Key ya fue usada con una puja distinta"
+                                ),
+                            )
+                        if idempotency_record["estado"] == "completed":
+                            response = PujaRepository.response_from_idempotency_record(
+                                idempotency_record
+                            )
+                            db.commit()
+                            return response
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail="Puja con la misma Idempotency-Key en proceso",
+                        )
+
+            asistente_id = SubastaRepository.get_asistente_id(
+                db, subasta_id, usuario_id
+            )
+            if not asistente_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Debes unirte a la subasta para poder pujar",
+                )
+
+            item = SubastaRepository.get_item_for_update(db, subasta_id, item_id)
+            if not item:
+                raise HTTPException(
+                    status_code=404, detail="Ítem no encontrado en esta subasta"
+                )
+
+            if item.get("subastado") == "si":
+                raise HTTPException(
+                    status_code=400, detail="Este ítem ya fue subastado"
+                )
+
+            precio_base = float(item["preciobase"])
+            mejor_oferta_actual = SubastaRepository.get_mejor_oferta(db, item_id)
+
+            if mejor_oferta_actual == 0.0:
+                limite_minimo = precio_base
+                limite_maximo = precio_base + (precio_base * 0.20)
+            else:
+                limite_minimo = mejor_oferta_actual + (precio_base * 0.01)
+                limite_maximo = mejor_oferta_actual + (precio_base * 0.20)
+
+            subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
+            categoria_subasta = subasta["categoria"] if subasta else "comun"
+            es_subasta_premium = categoria_subasta in ("oro", "platino")
+
+            if not es_subasta_premium:
+                if importe < limite_minimo:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"La puja mínima es de ${limite_minimo:.2f} "
+                            "(mejor oferta + 1% del valor base)"
+                        ),
+                    )
+                if importe > limite_maximo:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"La puja máxima permitida es de ${limite_maximo:.2f} "
+                            "(mejor oferta + 20% del valor base)"
+                        ),
+                    )
+            else:
+                if mejor_oferta_actual == 0.0 and importe < precio_base:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"La puja inicial debe ser al menos el precio base "
+                            f"(${precio_base:.2f})"
+                        ),
+                    )
+                if mejor_oferta_actual > 0.0 and importe <= mejor_oferta_actual:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"La puja debe superar la oferta actual "
+                            f"(${mejor_oferta_actual:.2f})"
+                        ),
+                    )
+
+            puja_id = SubastaRepository.registrar_puja(
+                db, asistente_id, item_id, importe
             )
 
-        item = SubastaRepository.get_item_for_update(db, subasta_id, item_id)
-        if not item:
-            raise HTTPException(
-                status_code=404, detail="Ítem no encontrado en esta subasta"
-            )
+            nuevo_limite_minimo = importe + (precio_base * 0.01)
+            nuevo_limite_maximo = importe + (precio_base * 0.20)
 
-        if item.get("subastado") == "si":
-            raise HTTPException(status_code=400, detail="Este ítem ya fue subastado")
+            response = {
+                "pujaId": puja_id,
+                "mejorOfertaActual": importe,
+                "limiteMinimo": nuevo_limite_minimo,
+                "limiteMaximo": nuevo_limite_maximo,
+                "moneda": "USD",
+                "esGanadoraParcial": True,
+            }
 
-        precio_base = float(item["preciobase"])
-        mejor_oferta_actual = SubastaRepository.get_mejor_oferta(db, item_id)
-
-        if mejor_oferta_actual == 0.0:
-            limite_minimo = precio_base
-            limite_maximo = precio_base + (precio_base * 0.20)
-        else:
-            limite_minimo = mejor_oferta_actual + (precio_base * 0.01)
-            limite_maximo = mejor_oferta_actual + (precio_base * 0.20)
-
-        subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
-        categoria_subasta = subasta["categoria"] if subasta else "comun"
-        es_subasta_premium = categoria_subasta in ("oro", "platino")
-
-        if not es_subasta_premium:
-            if importe < limite_minimo:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"La puja mínima es de ${limite_minimo:.2f} "
-                        "(mejor oferta + 1% del valor base)"
-                    ),
-                )
-            if importe > limite_maximo:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"La puja máxima permitida es de ${limite_maximo:.2f} "
-                        "(mejor oferta + 20% del valor base)"
-                    ),
-                )
-        else:
-            if mejor_oferta_actual == 0.0 and importe < precio_base:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"La puja inicial debe ser al menos el precio base "
-                        f"(${precio_base:.2f})"
-                    ),
-                )
-            if mejor_oferta_actual > 0.0 and importe <= mejor_oferta_actual:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"La puja debe superar la oferta actual "
-                        f"(${mejor_oferta_actual:.2f})"
-                    ),
+            if idempotency_record_id is not None:
+                PujaRepository.mark_idempotency_completed(
+                    db, idempotency_record_id, response
                 )
 
-        puja_id = SubastaRepository.registrar_puja(db, asistente_id, item_id, importe)
+            db.commit()
 
-        nuevo_limite_minimo = importe + (precio_base * 0.01)
-        nuevo_limite_maximo = importe + (precio_base * 0.20)
-
-        db.commit()
-
-        return {
-            "pujaId": puja_id,
-            "mejorOfertaActual": importe,
-            "limiteMinimo": nuevo_limite_minimo,
-            "limiteMaximo": nuevo_limite_maximo,
-            "moneda": "USD",
-            "esGanadoraParcial": True,
-        }
+            return response
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
 
     # ─────────────────── JOIN / LEAVE ───────────────────
 

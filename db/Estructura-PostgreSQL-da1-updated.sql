@@ -142,6 +142,30 @@ CREATE TABLE public.pujos (
   CONSTRAINT fk_pujos_asistentes FOREIGN KEY (asistente) REFERENCES public.asistentes(identificador),
   CONSTRAINT fk_pujos_itemscatalogo FOREIGN KEY (item) REFERENCES public.itemscatalogo(identificador)
 );
+CREATE TABLE public.puja_idempotency_keys (
+  identificador integer NOT NULL DEFAULT nextval('puja_idempotency_keys_identificador_seq'::regclass),
+  cliente_id integer NOT NULL,
+  subasta_id integer NOT NULL,
+  item_id integer NOT NULL,
+  importe numeric NOT NULL CHECK (importe > 0.01),
+  idempotency_key character varying(255) NOT NULL,
+  estado character varying NOT NULL DEFAULT 'processing'::character varying CHECK (estado::text = ANY (ARRAY['processing'::character varying, 'completed'::character varying]::text[])),
+  puja_id integer,
+  mejor_oferta_actual numeric,
+  limite_minimo numeric,
+  limite_maximo numeric,
+  moneda character varying,
+  es_ganadora_parcial boolean,
+  created_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT puja_idempotency_keys_pkey PRIMARY KEY (identificador),
+  CONSTRAINT uq_puja_idempotency_cliente_key UNIQUE (cliente_id, idempotency_key),
+  CONSTRAINT fk_puja_idempotency_cliente FOREIGN KEY (cliente_id) REFERENCES public.clientes(identificador),
+  CONSTRAINT fk_puja_idempotency_subasta FOREIGN KEY (subasta_id) REFERENCES public.subastas(identificador),
+  CONSTRAINT fk_puja_idempotency_item FOREIGN KEY (item_id) REFERENCES public.itemscatalogo(identificador),
+  CONSTRAINT fk_puja_idempotency_puja FOREIGN KEY (puja_id) REFERENCES public.pujos(identificador)
+);
+CREATE INDEX idx_puja_idempotency_cliente_key ON public.puja_idempotency_keys USING btree (cliente_id, idempotency_key);
 CREATE TABLE public.registrodesubasta (
   identificador integer NOT NULL DEFAULT nextval('registrodesubasta_identificador_seq'::regclass),
   subasta integer NOT NULL,
