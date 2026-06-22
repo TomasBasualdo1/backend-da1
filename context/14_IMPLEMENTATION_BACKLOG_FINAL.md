@@ -356,19 +356,19 @@ Riesgos principales:
 
 #### P1.4 — Implementar pago de multas en frontend
 
-* Estado actual: backend permite pagar multa; `userService.pagarMulta` existe; perfil lista multas pero no permite pagar.
-* Evidencia encontrada: `frontend-da1/src/services/userService.ts`, `frontend-da1/app/(tabs)/profile.tsx`.
-* Por qué falta: el usuario no puede liberarse desde la app aunque el backend lo soporte.
+* Estado actual actualizado 2026-06-21: implementado en frontend. Backend permite pagar multa; `userService.pagarMulta` existe; perfil lista multas y ahora permite pagar multas pendientes con medio validado compatible.
+* Evidencia encontrada/actualizada: `frontend-da1/src/services/userService.ts`, `frontend-da1/src/types/payment.ts`, `frontend-da1/app/(tabs)/profile.tsx`, `context/20_P1_4_FRONTEND_MULTAS_NOTES.md`.
+* Por qué faltaba: el usuario no podia liberarse desde la app aunque el backend lo soportara.
 * Fuente de verdad: spec 10.
 * Archivos involucrados: `frontend-da1/app/(tabs)/profile.tsx`, `src/services/userService.ts`.
-* Forma correcta de implementarlo: agregar acción sobre multas pendientes, selector de medio validado y refresh de perfil/multas.
-* Cambios backend: asegurar P0.6 para generación real.
-* Cambios frontend: botón pagar, confirmación y manejo de errores.
+* Forma implementada: accion sobre multas pendientes, selector de medio validado, evaluacion de limite reservado, confirmacion, loading, manejo de errores HTTP y refresh de perfil/multas/medios.
+* Cambios backend: sin cambios funcionales; P0.6 ya cubre generacion/pago y validaciones server-side.
+* Cambios frontend: boton pagar, selector de medio compatible, mensajes claros sin medios validados, confirmacion y manejo de errores. Bonus fix: etiquetas/listados `EN VIVO` alineados a fecha/hora de la consigna, sin tratar toda subasta `abierta` como vivo.
 * Cambios DB / migración si aplica: no requerida.
-* Tests recomendados: multa pendiente muestra CTA; medio no validado muestra error; pago refresca estado.
-* Riesgos: sin generación de multas, sólo sirve para datos manuales.
+* Tests recomendados: multa pendiente muestra CTA; multa pagada no muestra CTA; medio no validado o con limite insuficiente aparece incompatible; pago refresca estado y limpia `multaActiva` si era la ultima pendiente.
+* Riesgos: validacion automatica frontend pendiente en entorno con Node; el scheduler externo de vencimientos sigue fuera de alcance.
 * Dependencias: P0.6.
-* Spec sugerida: actualizar spec 10.
+* Spec sugerida: spec 10 queda alineada con el flujo implementado.
 
 #### P1.5 — Validar límite de garantía / cheque certificado
 
@@ -692,7 +692,7 @@ Pruebas mínimas:
 - [ ] Pagos generados y pagables desde la app.
 - [ ] Costo de envío definido.
 - [ ] Retiro informa pérdida de seguro.
-- [/] Multas se generan por incumplimiento y se pueden pagar. Backend OK; frontend de pago pendiente por bloqueo de escritura.
+- [/] Multas se generan por incumplimiento y se pueden pagar. Backend P0.6 OK; frontend P1.4 implementado. Scheduler externo sigue fuera de alcance.
 - [/] Bloqueos se aplican. Levantamiento automatico de bloqueo fuerte queda PENDIENTE DE CONFIRMAR.
 - [ ] Límite por garantía/cheque certificado validado o justificado fuera de alcance.
 - [ ] Consignación completa: publicar, ver estado, evaluación, aceptar/rechazar tasación, seguro.
