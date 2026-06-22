@@ -26,7 +26,13 @@ Documentación contextual del backend del **Sistema de Subastas**. Su objetivo e
 | 15 | [14_IMPLEMENTATION_BACKLOG_FINAL.md](14_IMPLEMENTATION_BACKLOG_FINAL.md) | Backlog final priorizado y estado real de implementación. |
 | 16 | [15_IMPLEMENTATION_NOTES.md](15_IMPLEMENTATION_NOTES.md) | Notas de implementación de etapas ya cerradas. |
 | 17 | [16_P0_4_SSE_LIVE_NOTES.md](16_P0_4_SSE_LIVE_NOTES.md) | Notas de implementación P0.4: SSE/live updates. |
-| 18 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
+| 18 | [17_P0_5_PAGOS_NOTES.md](17_P0_5_PAGOS_NOTES.md) | Notas de implementación P0.5: cierre, deuda y pago de subasta. |
+| 19 | [19_P0_6_MULTAS_VENCIMIENTOS_BLOQUEO_NOTES.md](19_P0_6_MULTAS_VENCIMIENTOS_BLOQUEO_NOTES.md) | Notas de implementación P0.6: multas, vencimientos y bloqueo. |
+| 20 | [20_P1_1_AUCTION_LISTINGS_DETAILS_NOTES.md](20_P1_1_AUCTION_LISTINGS_DETAILS_NOTES.md) | Notas P1.1: listados y detalles de subastas. |
+| 21 | [20_P1_4_FRONTEND_MULTAS_NOTES.md](20_P1_4_FRONTEND_MULTAS_NOTES.md) | Notas P1.4: pago de multas en frontend. |
+| 22 | [21_P1_5_GARANTIA_LIMITE_NOTES.md](21_P1_5_GARANTIA_LIMITE_NOTES.md) | Notas P1.5: límite por garantía / cheque certificado. |
+| 23 | [22_P1_6_TESTS_HARDENING_NOTES.md](22_P1_6_TESTS_HARDENING_NOTES.md) | Notas P1.6: estabilización de suite unittest. |
+| 24 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
 
 ## Fuentes de verdad del repo
 
