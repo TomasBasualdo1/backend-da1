@@ -206,6 +206,86 @@ class SubastaService:
             raise
 
     @staticmethod
+    def _calcular_exposicion_con_puja(
+        pagos_pendientes: float,
+        pujas_ganadoras: list[dict],
+        item_id: int,
+        importe_candidato: float,
+    ) -> tuple[float, float]:
+        exposicion_actual = float(pagos_pendientes or 0.0)
+        exposicion_con_candidata = float(pagos_pendientes or 0.0)
+        reemplaza_item_actual = False
+
+        for puja in pujas_ganadoras:
+            puja_item_id = puja.get("itemId") or puja.get("item_id")
+            importe_actual = float(puja.get("importe") or 0.0)
+            exposicion_actual += importe_actual
+
+            if puja_item_id == item_id:
+                exposicion_con_candidata += float(importe_candidato)
+                reemplaza_item_actual = True
+            else:
+                exposicion_con_candidata += importe_actual
+
+        if not reemplaza_item_actual:
+            exposicion_con_candidata += float(importe_candidato)
+
+        return exposicion_actual, exposicion_con_candidata
+
+    @staticmethod
+    def _validar_garantia_para_puja(
+        db: Connection,
+        usuario_id: int,
+        item_id: int,
+        importe: float,
+        moneda: str = "USD",
+    ) -> None:
+        garantia = SubastaRepository.get_garantia_validada_for_update(
+            db,
+            usuario_id,
+            moneda,
+        )
+        garantia_total = float(garantia.get("total") or 0.0)
+
+        if garantia_total <= 0:
+            return
+
+        pagos_pendientes = SubastaRepository.get_exposicion_pagos_pendientes(
+            db,
+            usuario_id,
+            moneda,
+        )
+        pujas_ganadoras = SubastaRepository.get_pujas_ganadoras_parciales_activas(
+            db,
+            usuario_id,
+        )
+        exposicion_actual, exposicion_con_candidata = (
+            SubastaService._calcular_exposicion_con_puja(
+                pagos_pendientes,
+                pujas_ganadoras,
+                item_id,
+                importe,
+            )
+        )
+
+        if exposicion_con_candidata <= garantia_total:
+            return
+
+        garantia_disponible = max(garantia_total - exposicion_actual, 0.0)
+        importe_requerido = max(exposicion_con_candidata - exposicion_actual, 0.0)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "codigo": "GARANTIA_INSUFICIENTE",
+                "mensaje": "La puja excede tu garantia disponible para compras pendientes.",
+                "garantiaDisponible": round(garantia_disponible, 2),
+                "exposicionActual": round(exposicion_actual, 2),
+                "importeRequerido": round(importe_requerido, 2),
+                "moneda": moneda,
+            },
+        )
+
+    @staticmethod
     def procesar_puja(
         db: Connection,
         subasta_id: int,
@@ -330,6 +410,14 @@ class SubastaService:
                             f"(${mejor_oferta_actual:.2f})"
                         ),
                     )
+
+            SubastaService._validar_garantia_para_puja(
+                db,
+                usuario_id,
+                item_id,
+                importe,
+                "USD",
+            )
 
             puja_id = SubastaRepository.registrar_puja(
                 db, asistente_id, item_id, importe

@@ -759,6 +759,7 @@ paths:
         2. Categoria del usuario >= categoria de la subasta.
         3. Puja mayor a la ultima oferta.
         4. Incremento minimo (+1% del valor base) y maximo (+20%), salvo oro/platino.
+        5. Exposicion acumulada contra garantia limitada validada, si el usuario dejo cheque certificado o cuenta bancaria con fondos reservados.
       parameters:
         - name: id
           in: path
@@ -794,7 +795,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/PujaResponse"
         "400":
-          description: Puja fuera de limites o menor a la oferta actual.
+          description: Puja fuera de limites, menor a la oferta actual o garantia insuficiente.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      detail:
+                        type: string
+                  - type: object
+                    properties:
+                      detail:
+                        $ref: "#/components/schemas/GarantiaInsuficienteError"
         "401":
           description: No autorizado.
         "403":
@@ -1429,6 +1442,29 @@ components:
           $ref: "#/components/schemas/Moneda"
         esGanadoraParcial:
           type: boolean
+
+    GarantiaInsuficienteError:
+      type: object
+      properties:
+        codigo:
+          type: string
+          enum: [GARANTIA_INSUFICIENTE]
+        mensaje:
+          type: string
+        garantiaDisponible:
+          type: number
+          format: float
+          description: Garantia aun disponible antes de registrar la puja candidata.
+        exposicionActual:
+          type: number
+          format: float
+          description: Pagos pendientes mas pujas ganadoras parciales activas antes de la candidata.
+        importeRequerido:
+          type: number
+          format: float
+          description: Exposicion adicional que agregaria la puja candidata.
+        moneda:
+          $ref: "#/components/schemas/Moneda"
 
     Puja:
       type: object
