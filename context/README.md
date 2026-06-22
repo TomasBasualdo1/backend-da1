@@ -32,7 +32,8 @@ Documentación contextual del backend del **Sistema de Subastas**. Su objetivo e
 | 21 | [20_P1_4_FRONTEND_MULTAS_NOTES.md](20_P1_4_FRONTEND_MULTAS_NOTES.md) | Notas P1.4: pago de multas en frontend. |
 | 22 | [21_P1_5_GARANTIA_LIMITE_NOTES.md](21_P1_5_GARANTIA_LIMITE_NOTES.md) | Notas P1.5: límite por garantía / cheque certificado. |
 | 23 | [22_P1_6_TESTS_HARDENING_NOTES.md](22_P1_6_TESTS_HARDENING_NOTES.md) | Notas P1.6: estabilización de suite unittest. |
-| 24 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
+| 24 | [23_P2_1_ROUTER_SQL_CLEANUP_NOTES.md](23_P2_1_ROUTER_SQL_CLEANUP_NOTES.md) | Notas P2.1: SQL inline de routers movido a service/repository. |
+| 25 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
 
 ## Fuentes de verdad del repo
 

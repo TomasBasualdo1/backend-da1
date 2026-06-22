@@ -1,11 +1,24 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from psycopg import Connection
 from psycopg.rows import dict_row
 
 from app.repositories.usuario_repo import UsuarioRepository
+from app.schemas.schemas import MedioPagoInput, MedioPagoUpdate
+from app.services.storage_service import StorageService
 from app.services.subasta_service import SubastaService
 
 class UsuarioService:
+    @staticmethod
+    def _extract_last_digits(payment_data: str) -> str:
+        ultimos_digitos = "4321"
+        if payment_data:
+            digits = [c for c in payment_data if c.isdigit()]
+            if len(digits) >= 4:
+                ultimos_digitos = "".join(digits[-4:])
+            else:
+                ultimos_digitos = payment_data[-4:]
+        return ultimos_digitos
+
     @staticmethod
     def get_profile(db: Connection, usuario_id: int) -> dict:
         query = """
@@ -49,6 +62,131 @@ class UsuarioService:
             user["apellido"] = ""
             
         return user
+
+    @staticmethod
+    async def update_profile(
+        db: Connection,
+        usuario_id: int,
+        nombre: str | None = None,
+        apellido: str | None = None,
+        direccion: str | None = None,
+        telefono: str | None = None,
+        foto: UploadFile | None = None,
+    ) -> dict:
+        person = UsuarioRepository.get_person_for_profile_update(db, usuario_id)
+        if not person:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado",
+            )
+
+        current_full_name = person["nombre"] or ""
+        parts = current_full_name.split(" ", 1)
+        curr_nombre = parts[0]
+        curr_apellido = parts[1] if len(parts) > 1 else ""
+
+        new_nombre = nombre if nombre is not None else curr_nombre
+        new_apellido = apellido if apellido is not None else curr_apellido
+        new_full_name = f"{new_nombre} {new_apellido}".strip()
+
+        UsuarioRepository.update_profile_person(
+            db,
+            usuario_id,
+            nombre_completo=new_full_name,
+            direccion=direccion,
+        )
+
+        foto_url = None
+        if foto:
+            foto_bytes = await foto.read()
+            foto_url = StorageService.upload_file(
+                foto_bytes,
+                f"profile/{usuario_id}/photo.jpg",
+                foto.content_type or "image/jpeg",
+            )
+
+        UsuarioRepository.update_profile_additional(
+            db,
+            usuario_id,
+            telefono=telefono,
+            foto_url=foto_url,
+        )
+        db.commit()
+        return {"message": "Perfil actualizado correctamente"}
+
+    @staticmethod
+    def delete_profile_picture(db: Connection, usuario_id: int) -> dict:
+        UsuarioRepository.clear_profile_picture(db, usuario_id)
+        db.commit()
+        return {"message": "Foto de perfil eliminada correctamente"}
+
+    @staticmethod
+    def list_payment_methods(db: Connection, usuario_id: int) -> list[dict]:
+        return UsuarioRepository.list_payment_methods(db, usuario_id)
+
+    @staticmethod
+    def add_payment_method(
+        db: Connection, usuario_id: int, body: MedioPagoInput
+    ) -> dict:
+        UsuarioRepository.create_payment_method(
+            db,
+            usuario_id=usuario_id,
+            tipo=body.tipo.value,
+            datos_encriptados=body.datos_encriptados,
+            ultimos_digitos=UsuarioService._extract_last_digits(
+                body.datos_encriptados
+            ),
+            moneda=body.moneda.value,
+            limite_reservado=body.limiteReservado or 0.00,
+            pais_banco=body.paisBanco,
+            es_cuenta_receptora=body.esCuentaReceptora or False,
+        )
+        db.commit()
+        return {"message": "Medio de pago agregado correctamente"}
+
+    @staticmethod
+    def update_payment_method(
+        db: Connection, usuario_id: int, payment_method_id: int, body: MedioPagoUpdate
+    ) -> dict:
+        if not UsuarioRepository.payment_method_belongs_to_user(
+            db, usuario_id, payment_method_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Medio de pago no encontrado",
+            )
+
+        fields = {}
+        if body.limiteReservado is not None:
+            fields["limite_reservado"] = body.limiteReservado
+        if body.esCuentaReceptora is not None:
+            fields["es_cuenta_receptora"] = body.esCuentaReceptora
+
+        if not fields:
+            return {"message": "No se realizaron cambios"}
+
+        UsuarioRepository.update_payment_method(db, payment_method_id, fields)
+        db.commit()
+        return {"message": "Medio de pago actualizado"}
+
+    @staticmethod
+    def delete_payment_method(
+        db: Connection, usuario_id: int, payment_method_id: int
+    ) -> None:
+        if not UsuarioRepository.payment_method_belongs_to_user(
+            db, usuario_id, payment_method_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Medio de pago no encontrado",
+            )
+
+        UsuarioRepository.delete_payment_method(db, payment_method_id)
+        db.commit()
+
+    @staticmethod
+    def get_metrics(db: Connection, usuario_id: int) -> dict:
+        return UsuarioRepository.get_metrics(db, usuario_id)
 
     @staticmethod
     def list_multas(db: Connection, usuario_id: int) -> list[dict]:

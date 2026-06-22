@@ -12,6 +12,7 @@ from app.api.admin import (
     verify_user,
 )
 from app.api.auth import registro_paso1
+from app.api.auth import RegistroPaso2Request, registro_paso2
 from app.api.subastas import close_auction
 from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import (
@@ -101,6 +102,66 @@ class TestRegistroPendiente(unittest.TestCase):
 
         self.assertEqual(ctx.exception.status_code, 403)
         self.assertEqual(ctx.exception.detail, "User registration not approved")
+
+
+class TestRegistroPaso2(unittest.TestCase):
+    @patch(
+        "app.services.auth_service.UsuarioRepository.get_user_id_by_token",
+        return_value=None,
+    )
+    def test_registro_paso2_token_no_encontrado_devuelve_404(self, get_user_id):
+        db = MagicMock()
+        body = RegistroPaso2Request(token="missing", password="secret")
+
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(registro_paso2(body, db))
+
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(ctx.exception.detail, "Token no encontrado")
+        get_user_id.assert_called_once_with(db, "missing")
+
+    @patch(
+        "app.services.auth_service.UsuarioRepository.create_payment_method"
+    )
+    @patch("app.services.auth_service.UsuarioRepository.set_password_from_token")
+    @patch(
+        "app.services.auth_service.UsuarioRepository.get_user_id_by_token",
+        return_value=55,
+    )
+    def test_registro_paso2_crea_medio_opcional(
+        self,
+        get_user_id,
+        set_password_from_token,
+        create_payment_method,
+    ):
+        db = MagicMock()
+        body = RegistroPaso2Request(
+            token="123456",
+            password="secret",
+            paymentTipo="tarjeta_credito",
+            paymentDatos="tok_1234567890",
+            paymentMoneda="USD",
+            paymentLimite=1500.0,
+            paymentPais="AR",
+        )
+
+        result = asyncio.run(registro_paso2(body, db))
+
+        self.assertIsNone(result)
+        get_user_id.assert_called_once_with(db, "123456")
+        set_password_from_token.assert_called_once_with(db, "123456", "secret")
+        create_payment_method.assert_called_once_with(
+            db,
+            usuario_id=55,
+            tipo="tarjeta_credito",
+            datos_encriptados="tok_1234567890",
+            ultimos_digitos="7890",
+            moneda="USD",
+            limite_reservado=1500.0,
+            pais_banco="AR",
+            es_cuenta_receptora=False,
+        )
+        db.commit.assert_called_once()
 
 
 class TestAdminGuards(unittest.TestCase):
