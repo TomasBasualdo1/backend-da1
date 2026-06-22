@@ -3,9 +3,55 @@ from fastapi import HTTPException, status
 from psycopg import Connection
 
 from app.core.security import verify_password
+from app.repositories.usuario_repo import UsuarioRepository
 
 
 class AuthService:
+    @staticmethod
+    def _extract_last_digits(payment_data: str) -> str:
+        ultimos_digitos = "4321"
+        if payment_data:
+            digits = [c for c in payment_data if c.isdigit()]
+            if len(digits) >= 4:
+                ultimos_digitos = "".join(digits[-4:])
+            else:
+                ultimos_digitos = payment_data[-4:]
+        return ultimos_digitos
+
+    @staticmethod
+    def complete_registration_step2(
+        db: Connection,
+        token: str,
+        password: str,
+        payment_tipo: str | None = None,
+        payment_datos: str | None = None,
+        payment_moneda: str | None = None,
+        payment_limite: float | None = None,
+        payment_pais: str | None = None,
+    ) -> None:
+        user_id = UsuarioRepository.get_user_id_by_token(db, token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Token no encontrado",
+            )
+
+        UsuarioRepository.set_password_from_token(db, token, password)
+
+        if payment_tipo and payment_datos and payment_moneda:
+            UsuarioRepository.create_payment_method(
+                db,
+                usuario_id=user_id,
+                tipo=payment_tipo,
+                datos_encriptados=payment_datos,
+                ultimos_digitos=AuthService._extract_last_digits(payment_datos),
+                moneda=payment_moneda,
+                limite_reservado=payment_limite or 0.00,
+                pais_banco=payment_pais,
+                es_cuenta_receptora=False,
+            )
+            db.commit()
+
     @staticmethod
     def login(db: Connection, documento: str, password: str) -> dict:
         """

@@ -408,10 +408,11 @@ Riesgos principales:
 
 #### P2.1 — Mover SQL inline de routers a service/repository
 
-* Estado actual: `usuarios.py`, `notificaciones.py` y partes de `auth.py` tienen SQL directo.
-* Evidencia encontrada: archivos `app/api/*.py`.
-* Forma correcta de implementarlo: no bloquear entrega; al tocar flujos grandes, mover lógica nueva a service/repository y dejar routers delgados.
-* Tests recomendados: mantener respuestas actuales.
+* Estado actual actualizado 2026-06-22: implementado para `notificaciones.py`, `usuarios.py` y `auth.py:registro_paso2`. Los routers ya no contienen SQL inline en esos flujos.
+* Evidencia encontrada/actualizada: `grep -R "cursor.execute" -n app/api` y `grep -R "db.cursor" -n app/api` sólo dejan SQL inline en hallazgos secundarios `uploads.py` y `paises.py`.
+* Forma implementada: routers delgados delegan en `NotificacionService`, `UsuarioService`, `AuthService` y repositorios SQL crudo con queries parametrizadas. El update dinámico de medios de pago queda limitado por allowlist interna.
+* Tests agregados/ejecutados: `tests/test_notificaciones.py`, ampliación de `tests/test_usuarios.py` y cobertura de `registro_paso2` en `tests/test_seguridad_registro.py`. Suite completa `unittest`: 110 tests OK, 1 skip opt-in de email real.
+* Pendiente: decidir si `uploads.py` y `paises.py` se mueven en una etapa posterior. No se tocaron frontend, Swagger, schemas generados ni DB.
 
 #### P2.2 — Corregir modelos generados y nombres inconsistentes
 

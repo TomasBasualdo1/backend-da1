@@ -155,6 +155,16 @@ class UsuarioRepository:
         db.commit()
 
     @staticmethod
+    def get_user_id_by_token(db: Connection, token: str) -> int | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT identificador FROM personas_adicionales WHERE token_email = %s",
+                (token,),
+            )
+            row = cursor.fetchone()
+            return row["identificador"] if row else None
+
+    @staticmethod
     def generate_reset_token(db: Connection, email: str) -> str:
         with db.cursor() as cursor:
             cursor.execute(
@@ -271,6 +281,217 @@ class UsuarioRepository:
                 (categoria, usuario_id),
             )
         db.commit()
+
+    @staticmethod
+    def get_person_for_profile_update(db: Connection, usuario_id: int) -> dict | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT nombre, documento FROM personas WHERE identificador = %s",
+                (usuario_id,),
+            )
+            return cursor.fetchone()
+
+    @staticmethod
+    def update_profile_person(
+        db: Connection,
+        usuario_id: int,
+        nombre_completo: str | None = None,
+        direccion: str | None = None,
+    ) -> None:
+        with db.cursor() as cursor:
+            if nombre_completo:
+                cursor.execute(
+                    "UPDATE personas SET nombre = %s WHERE identificador = %s",
+                    (nombre_completo, usuario_id),
+                )
+            if direccion is not None:
+                cursor.execute(
+                    "UPDATE personas SET direccion = %s WHERE identificador = %s",
+                    (direccion, usuario_id),
+                )
+
+    @staticmethod
+    def update_profile_additional(
+        db: Connection,
+        usuario_id: int,
+        telefono: str | None = None,
+        foto_url: str | None = None,
+    ) -> None:
+        with db.cursor() as cursor:
+            if telefono is not None:
+                cursor.execute(
+                    "UPDATE personas_adicionales SET telefono = %s WHERE identificador = %s",
+                    (telefono, usuario_id),
+                )
+            if foto_url is not None:
+                cursor.execute(
+                    "UPDATE personas_adicionales SET foto_url = %s WHERE identificador = %s",
+                    (foto_url, usuario_id),
+                )
+
+    @staticmethod
+    def clear_profile_picture(db: Connection, usuario_id: int) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "UPDATE personas_adicionales SET foto_url = NULL WHERE identificador = %s",
+                (usuario_id,),
+            )
+
+    @staticmethod
+    def list_payment_methods(db: Connection, usuario_id: int) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    identificador as id,
+                    tipo,
+                    ultimos_digitos,
+                    estado_verificacion as "estadoVerificacion",
+                    moneda,
+                    limite_reservado as "limiteReservado",
+                    pais_banco as "paisBanco",
+                    es_cuenta_receptora as "esCuentaReceptora"
+                FROM medios_pago
+                WHERE cliente_id = %s
+                """,
+                (usuario_id,),
+            )
+            rows = cursor.fetchall()
+            for row in rows:
+                row["limiteReservado"] = float(row["limiteReservado"] or 0)
+                row["esCuentaReceptora"] = bool(row["esCuentaReceptora"])
+            return rows
+
+    @staticmethod
+    def create_payment_method(
+        db: Connection,
+        usuario_id: int,
+        tipo: str,
+        datos_encriptados: str,
+        ultimos_digitos: str,
+        moneda: str,
+        limite_reservado: float,
+        pais_banco: str | None,
+        es_cuenta_receptora: bool,
+    ) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO medios_pago (
+                    cliente_id, tipo, datos_encriptados, ultimos_digitos,
+                    estado_verificacion, moneda, limite_reservado, pais_banco, es_cuenta_receptora
+                ) VALUES (%s, %s, %s, %s, 'pendiente', %s, %s, %s, %s)
+                """,
+                (
+                    usuario_id,
+                    tipo,
+                    datos_encriptados,
+                    ultimos_digitos,
+                    moneda,
+                    limite_reservado,
+                    pais_banco,
+                    es_cuenta_receptora,
+                ),
+            )
+
+    @staticmethod
+    def payment_method_belongs_to_user(
+        db: Connection, usuario_id: int, payment_method_id: int
+    ) -> bool:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM medios_pago WHERE identificador = %s AND cliente_id = %s",
+                (payment_method_id, usuario_id),
+            )
+            return bool(cursor.fetchone())
+
+    @staticmethod
+    def update_payment_method(
+        db: Connection, payment_method_id: int, fields: dict[str, object]
+    ) -> None:
+        allowed_fields = {
+            "limite_reservado": "limite_reservado",
+            "es_cuenta_receptora": "es_cuenta_receptora",
+        }
+        updates = []
+        params = []
+        for field, value in fields.items():
+            column = allowed_fields[field]
+            updates.append(f"{column} = %s")
+            params.append(value)
+
+        params.append(payment_method_id)
+        with db.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE medios_pago SET {', '.join(updates)} WHERE identificador = %s",
+                tuple(params),
+            )
+
+    @staticmethod
+    def delete_payment_method(db: Connection, payment_method_id: int) -> None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM medios_pago WHERE identificador = %s",
+                (payment_method_id,),
+            )
+
+    @staticmethod
+    def get_metrics(db: Connection, usuario_id: int) -> dict:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(DISTINCT subasta) as total FROM asistentes WHERE cliente = %s",
+                (usuario_id,),
+            )
+            total_participadas = cursor.fetchone()["total"] or 0
+
+            cursor.execute(
+                "SELECT COUNT(DISTINCT subasta) as total FROM registrodesubasta WHERE cliente = %s",
+                (usuario_id,),
+            )
+            total_ganadas = cursor.fetchone()["total"] or 0
+
+            cursor.execute(
+                "SELECT COUNT(*) as total_pujas, COALESCE(SUM(importe), 0) as total_importe FROM pujos p JOIN asistentes a ON p.asistente = a.identificador WHERE a.cliente = %s",
+                (usuario_id,),
+            )
+            pujas_row = cursor.fetchone()
+            total_pujas = pujas_row["total_pujas"] or 0
+            monto_ofertado = float(pujas_row["total_importe"] or 0)
+
+            cursor.execute(
+                "SELECT COALESCE(SUM(total_final), 0) as total FROM pagos WHERE cliente_id = %s AND estado = 'pagado'",
+                (usuario_id,),
+            )
+            total_pagado = float(cursor.fetchone()["total"] or 0)
+
+            porcentaje_exito = 0.0
+            if total_participadas > 0:
+                porcentaje_exito = (total_ganadas / total_participadas) * 100.0
+
+            cursor.execute(
+                "SELECT DISTINCT s.categoria FROM subastas s JOIN asistentes a ON s.identificador = a.subasta WHERE a.cliente = %s",
+                (usuario_id,),
+            )
+            categorias = [
+                row["categoria"] for row in cursor.fetchall() if row["categoria"] is not None
+            ]
+
+            cursor.execute(
+                "SELECT MAX(fecha_hora_inicio) as max_fecha FROM sesiones_subasta WHERE cliente_id = %s",
+                (usuario_id,),
+            )
+            ultima_participacion = cursor.fetchone()["max_fecha"]
+
+            return {
+                "totalSubastasParticipadas": total_participadas,
+                "totalSubastasGanadas": total_ganadas,
+                "porcentajeExito": porcentaje_exito,
+                "totalPujasRealizadas": total_pujas,
+                "montoTotalOfertado": monto_ofertado,
+                "montoTotalPagado": total_pagado,
+                "categoriasParticipadas": categorias,
+                "ultimaParticipacion": ultima_participacion,
+            }
 
     @staticmethod
     def get_multas(db: Connection, usuario_id: int) -> list[dict]:
