@@ -277,6 +277,28 @@ class PujaResponse(BaseModel):
     esGanadoraParcial: Optional[bool] = None
 
 
+class CodigoGarantiaInsuficiente(Enum):
+    GARANTIA_INSUFICIENTE = 'GARANTIA_INSUFICIENTE'
+
+
+class GarantiaInsuficienteError(BaseModel):
+    codigo: Optional[CodigoGarantiaInsuficiente] = None
+    mensaje: Optional[str] = None
+    garantiaDisponible: Optional[float] = Field(
+        None,
+        description='Garantia aun disponible antes de registrar la puja candidata.',
+    )
+    exposicionActual: Optional[float] = Field(
+        None,
+        description='Pagos pendientes mas pujas ganadoras parciales activas antes de la candidata.',
+    )
+    importeRequerido: Optional[float] = Field(
+        None,
+        description='Exposicion adicional que agregaria la puja candidata.',
+    )
+    moneda: Optional[Moneda] = None
+
+
 class Puja(BaseModel):
     id: Optional[int] = None
     usuarioId: Optional[int] = Field(

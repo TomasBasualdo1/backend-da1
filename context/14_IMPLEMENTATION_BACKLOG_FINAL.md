@@ -373,18 +373,19 @@ Riesgos principales:
 
 #### P1.5 — Validar límite de garantía / cheque certificado
 
-* Estado actual: DB y UI permiten `limiteReservado`; backend no lo usa para restringir pujas/compras.
-* Evidencia encontrada: `db/Estructura-PostgreSQL-da1-updated.sql:medios_pago.limite_reservado`, `frontend-da1/app/(auth)/register-step2.tsx`, `frontend-da1/app/(tabs)/profile.tsx`, `app/services/subasta_service.py`.
-* Por qué falta: el TPO dice que las compras no pueden superar la garantía.
-* Fuente de verdad: TPO.
-* Archivos involucrados: `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/api/usuarios.py`.
-* Forma correcta de implementarlo: definir si el límite se reserva al join, al pujar o al cerrar; calcular compras pendientes más nueva puja contra límites disponibles.
-* Cambios backend: consultas de medios certificados/fondos y pagos pendientes; rechazo 400/403 cuando excede.
-* Cambios frontend: mostrar límite disponible y deshabilitar pujas que lo exceden.
-* Cambios DB / migración si aplica: no necesariamente.
-* Tests recomendados: usuario con límite insuficiente no puede pujar/cerrar compra.
-* Riesgos: regla ambigua si tiene múltiples medios.
-* Dependencias: decisión de negocio.
+* Estado actual actualizado 2026-06-22: implementado en backend como fuente de verdad y manejado en frontend como error seguro de puja.
+* Evidencia encontrada/actualizada: `db/Estructura-PostgreSQL-da1-updated.sql:medios_pago.limite_reservado`, `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `tests/test_garantia_limite.py`, `frontend-da1/app/(tabs)/live.tsx`.
+* Por qué faltaba: el TPO dice que las compras no pueden superar la garantía cuando el usuario dejo un monto reservado.
+* Fuente de verdad: TPO y nota `context/21_P1_5_GARANTIA_LIMITE_NOTES.md`.
+* Archivos involucrados: `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v4.YAML`, `tests/test_garantia_limite.py`, `frontend-da1/src/types/auction.ts`, `frontend-da1/app/(tabs)/live.tsx`.
+* Forma implementada: no reserva al join; valida al pujar, despues de limites 1%/20% y antes de `registrar_puja`; replay idempotente completed devuelve respuesta cacheada sin recalcular; rechazo por garantia hace rollback y no emite SSE.
+* Exposicion considerada: pagos pendientes del usuario en USD (`total_final`) + mejores pujas vigentes por item en subastas abiertas donde el usuario lidera + puja candidata; si ya lidera el mismo item, se reemplaza su importe anterior.
+* Garantia considerada: suma medios propios `validado`, `limite_reservado > 0`, moneda `USD`, tipo `cheque_certificado` o `cuenta_bancaria`.
+* Cambios frontend: `live.tsx` muestra el error `GARANTIA_INSUFICIENTE` con disponible, requerido y exposicion actual. No anticipa la exposicion acumulada porque no se agrego endpoint nuevo.
+* Cambios DB / migración si aplica: no requerida; no se creo ledger ni tabla de reservas.
+* Tests agregados/ejecutados: `tests/test_garantia_limite.py`.
+* Riesgos: `PENDIENTE DE CONFIRMAR` si negocio quiere obligar garantia positiva para toda puja; P1.5 conserva la decision conservadora de no bloquear a quien no dejo garantia limitada.
+* Dependencias: P0.3 idempotencia, P0.5 pagos, P0.6 multas/bloqueo, P1.4 frontend multas.
 * Spec sugerida: `context/specs/15-pagos-multas-vencimientos.md`.
 
 #### P1.6 — Fortalecer tests automatizados
@@ -695,7 +696,7 @@ Pruebas mínimas:
 - [ ] Retiro informa pérdida de seguro.
 - [/] Multas se generan por incumplimiento y se pueden pagar. Backend P0.6 OK; frontend P1.4 implementado. Scheduler externo sigue fuera de alcance.
 - [/] Bloqueos se aplican. Levantamiento automatico de bloqueo fuerte queda PENDIENTE DE CONFIRMAR.
-- [ ] Límite por garantía/cheque certificado validado o justificado fuera de alcance.
+- [x] Límite por garantía/cheque certificado validado o justificado fuera de alcance.
 - [ ] Consignación completa: publicar, ver estado, evaluación, aceptar/rechazar tasación, seguro.
 - [ ] Admin puede crear subastas y cargar catálogo.
 - [ ] Sin secretos commiteados.

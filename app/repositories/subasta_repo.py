@@ -515,6 +515,86 @@ class SubastaRepository:
             )
             return cursor.fetchone()["identificador"]
 
+    @staticmethod
+    def get_garantia_validada_for_update(
+        db: Connection,
+        cliente_id: int,
+        moneda: str = DEFAULT_SUBASTA_MONEDA,
+    ) -> dict:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT identificador, limite_reservado
+                FROM medios_pago
+                WHERE cliente_id = %s
+                  AND estado_verificacion = 'validado'
+                  AND moneda = %s
+                  AND limite_reservado > 0
+                  AND tipo IN ('cheque_certificado', 'cuenta_bancaria')
+                FOR UPDATE
+                """,
+                (cliente_id, moneda),
+            )
+            rows = cursor.fetchall()
+
+        total = sum(float(row["limite_reservado"] or 0.0) for row in rows)
+        return {"total": total, "medios": len(rows), "moneda": moneda}
+
+    @staticmethod
+    def get_exposicion_pagos_pendientes(
+        db: Connection,
+        cliente_id: int,
+        moneda: str = DEFAULT_SUBASTA_MONEDA,
+    ) -> float:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COALESCE(SUM(total_final), 0) AS total
+                FROM pagos
+                WHERE cliente_id = %s
+                  AND estado = 'pendiente'
+                  AND moneda = %s
+                """,
+                (cliente_id, moneda),
+            )
+            row = cursor.fetchone()
+            return float(row["total"] or 0.0)
+
+    @staticmethod
+    def get_pujas_ganadoras_parciales_activas(
+        db: Connection,
+        cliente_id: int,
+    ) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    mejores.item_id AS "itemId",
+                    mejores.importe
+                FROM (
+                    SELECT DISTINCT ON (pu.item)
+                        pu.item AS item_id,
+                        pu.importe,
+                        a.cliente
+                    FROM pujos pu
+                    JOIN asistentes a ON pu.asistente = a.identificador
+                    JOIN itemscatalogo ic ON pu.item = ic.identificador
+                    JOIN catalogos c ON ic.catalogo = c.identificador
+                    JOIN subastas s ON c.subasta = s.identificador
+                    WHERE s.estado = 'abierta'
+                      AND ic.subastado = 'no'
+                    ORDER BY pu.item, pu.importe DESC, pu.identificador DESC
+                ) mejores
+                WHERE mejores.cliente = %s
+                """,
+                (cliente_id,),
+            )
+            rows = cursor.fetchall()
+
+        for row in rows:
+            row["importe"] = float(row["importe"] or 0.0)
+        return rows
+
     # ─────────────────── JOIN / LEAVE ───────────────────
 
     @staticmethod
