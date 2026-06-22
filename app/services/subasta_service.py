@@ -238,7 +238,7 @@ class SubastaService:
         usuario_id: int,
         item_id: int,
         importe: float,
-        moneda: str = "USD",
+        moneda: str,
     ) -> None:
         garantia = SubastaRepository.get_garantia_validada_for_update(
             db,
@@ -374,6 +374,7 @@ class SubastaService:
 
             subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
             categoria_subasta = subasta["categoria"] if subasta else "comun"
+            moneda_subasta = subasta["moneda"] if subasta else "USD"
             es_subasta_premium = categoria_subasta in ("oro", "platino")
 
             if not es_subasta_premium:
@@ -416,7 +417,7 @@ class SubastaService:
                 usuario_id,
                 item_id,
                 importe,
-                "USD",
+                moneda_subasta,
             )
 
             puja_id = SubastaRepository.registrar_puja(
@@ -431,7 +432,7 @@ class SubastaService:
                 "mejorOfertaActual": importe,
                 "limiteMinimo": nuevo_limite_minimo,
                 "limiteMaximo": nuevo_limite_maximo,
-                "moneda": "USD",
+                "moneda": moneda_subasta,
                 "esGanadoraParcial": True,
             }
 
@@ -604,7 +605,7 @@ class SubastaService:
                     cliente_id,
                     totales["total_pujado"],
                     totales["comision"],
-                    "USD",
+                    subasta["moneda"],
                 )
 
             SubastaRepository.marcar_subasta_cerrada(db, subasta_id)

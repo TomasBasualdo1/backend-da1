@@ -109,7 +109,7 @@ def puja_context(
         stack.enter_context(
             patch(
                 "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-                return_value={"identificador": 5, "estado": "abierta", "categoria": categoria_subasta},
+                return_value={"identificador": 5, "estado": "abierta", "categoria": categoria_subasta, "moneda": "USD"},
             )
         )
         get_garantia = stack.enter_context(

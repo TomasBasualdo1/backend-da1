@@ -115,7 +115,7 @@ class TestPujaIdempotencyService(unittest.TestCase):
             return_value=0.0,
         ), patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"categoria": "comun"},
+            return_value={"categoria": "comun", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.registrar_puja",
             return_value=77,

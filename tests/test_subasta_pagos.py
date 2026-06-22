@@ -105,7 +105,7 @@ class TestSubastaPagoApi(unittest.TestCase):
 
         with patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"identificador": 5, "estado": "abierta", "categoria": "comun"},
+            return_value={"identificador": 5, "estado": "abierta", "categoria": "comun", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.obtener_items_con_pujas",
             return_value=items,

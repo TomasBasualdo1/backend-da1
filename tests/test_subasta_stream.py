@@ -20,7 +20,7 @@ class TestSubastaStreamAccess(unittest.TestCase):
 
         with patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"estado": "abierta", "categoria": "oro"},
+            return_value={"estado": "abierta", "categoria": "oro", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.puede_participar",
             return_value=True,
@@ -45,7 +45,7 @@ class TestSubastaStreamAccess(unittest.TestCase):
 
         with patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"estado": "abierta", "categoria": "comun"},
+            return_value={"estado": "abierta", "categoria": "comun", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.puede_participar",
             return_value=True,

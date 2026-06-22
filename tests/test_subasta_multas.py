@@ -127,7 +127,7 @@ class TestProcesarVencimientosService(unittest.TestCase):
             return_value={},
         ), patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"identificador": 5, "estado": "abierta", "categoria": "comun"},
+            return_value={"identificador": 5, "estado": "abierta", "categoria": "comun", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.puede_participar",
             return_value=False,

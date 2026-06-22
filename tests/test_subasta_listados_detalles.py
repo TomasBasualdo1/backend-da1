@@ -73,7 +73,9 @@ class TestSubastaListadosDetallesRepository(unittest.TestCase):
 
         self.assertEqual(result[0]["moneda"], "USD")
         self.assertNotIn("precioBase", result[0])
-        self.assertEqual(cursor.execute.call_args.args[1], ("USD",))
+        executed_sql = cursor.execute.call_args.args[0]
+        self.assertIn("s.moneda", executed_sql)
+        self.assertEqual(cursor.execute.call_args.args[1], ())
 
     def test_detalle_publico_no_expone_precio_base(self):
         db, _ = make_db(fetchone_value=subasta_row(), fetchall_value=[item_publico()])
@@ -128,7 +130,7 @@ class TestSubastaListadosDetallesService(unittest.TestCase):
 
         with patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
-            return_value={"identificador": 5, "estado": "abierta", "categoria": "oro"},
+            return_value={"identificador": 5, "estado": "abierta", "categoria": "oro", "moneda": "USD"},
         ), patch(
             "app.services.subasta_service.SubastaRepository.get_detalle",
         ) as get_detalle:

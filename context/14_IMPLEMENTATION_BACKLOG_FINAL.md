@@ -423,10 +423,11 @@ Riesgos principales:
 
 #### P2.3 — Definir moneda real de subasta
 
-* Estado actual: Swagger y `SubastaCreate` incluyen `moneda`, pero `subastas` no tiene columna. Backend hardcodea `USD`.
-* Evidencia encontrada: SQL `subastas`, `schemas.py:SubastaCreate`, `subasta_repo.py`.
-* Forma correcta de implementarlo: confirmar si se agrega columna/migración o si moneda queda fuera de alcance.
-* Tests recomendados: creación/listado/detalle/pagos conservan moneda.
+* Estado actual actualizado 2026-06-22: implementado. La tabla `subastas` tiene columna `moneda VARCHAR(3) NOT NULL DEFAULT 'USD'`. Backend lee dinámicamente la moneda de cada subasta en lugar de hardcodear `"USD"`.
+* Evidencia encontrada/actualizada: columna `moneda` en `db/Estructura-PostgreSQL-da1-updated.sql` (línea 83). Constante `DEFAULT_SUBASTA_MONEDA` eliminada de `subasta_repo.py`. Queries de listado/detalle usan `s.moneda`. `get_subasta_basica` incluye `moneda`. Service usa `subasta["moneda"]` en `procesar_puja` y `cerrar_subasta`.
+* Forma implementada: columna DB con default `'USD'` para retrocompatibilidad. `SubastaCreate` ya exige `moneda` (Enum `ARS`/`USD`). Validaciones de garantía y generación de pagos propagan la moneda real. Migración aplicada en Supabase.
+* Tests agregados/ejecutados: mocks de `get_subasta_basica` actualizados en 6 archivos de test para incluir `"moneda": "USD"`. Asserts de queries SQL ajustados. Suite completa `unittest`: 110 tests OK, 1 skip opt-in.
+* Notas de implementación: ver `context/24_P2_3_MONEDA_SUBASTA_NOTES.md`.
 
 #### P2.4 — Definir subasta colección
 

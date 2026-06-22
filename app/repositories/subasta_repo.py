@@ -4,9 +4,6 @@ from psycopg import Connection
 from app.schemas.schemas import CatalogoItemInput, SubastaCreate
 
 
-DEFAULT_SUBASTA_MONEDA = "USD"
-
-
 class SubastaRepository:
 
     # ─────────────────────── LISTADOS ───────────────────────
@@ -82,9 +79,9 @@ class SubastaRepository:
                     INSERT INTO subastas (
                         fecha, hora, estado, subastador, ubicacion,
                         capacidadasistentes, tienedeposito, seguridadpropia,
-                        categoria
+                        categoria, moneda
                     )
-                    VALUES (%s, %s, 'abierta', %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, 'abierta', %s, %s, %s, %s, %s, %s, %s)
                     RETURNING
                         identificador AS id,
                         fecha,
@@ -102,6 +99,7 @@ class SubastaRepository:
                         "si" if subasta.tieneDeposito else "no",
                         "si" if subasta.seguridadPropia else "no",
                         subasta.categoria.value,
+                        subasta.moneda.value,
                     ),
                 )
                 created = cursor.fetchone()
@@ -313,12 +311,12 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    %s AS moneda
+                    s.moneda
                 FROM subastas s
                 WHERE s.estado = 'abierta'
                 ORDER BY s.fecha, s.hora
                 """,
-                (DEFAULT_SUBASTA_MONEDA,),
+                (),
             )
             return cursor.fetchall()
 
@@ -334,12 +332,12 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    %s AS moneda
+                    s.moneda
                 FROM subastas s
                 WHERE s.estado = 'abierta'
                 ORDER BY s.fecha, s.hora
                 """,
-                (DEFAULT_SUBASTA_MONEDA,),
+                (),
             )
             return cursor.fetchall()
 
@@ -355,12 +353,12 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    %s AS moneda
+                    s.moneda
                 FROM subastas s
                 WHERE s.identificador = %s
                   AND s.estado = 'abierta'
                 """,
-                (DEFAULT_SUBASTA_MONEDA, subasta_id),
+                (subasta_id,),
             )
             subasta = cursor.fetchone()
             if not subasta:
@@ -410,11 +408,11 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    %s AS moneda
+                    s.moneda
                 FROM subastas s
                 WHERE s.identificador = %s
                 """,
-                (DEFAULT_SUBASTA_MONEDA, subasta_id),
+                (subasta_id,),
             )
             subasta = cursor.fetchone()
             if not subasta:
@@ -519,7 +517,7 @@ class SubastaRepository:
     def get_garantia_validada_for_update(
         db: Connection,
         cliente_id: int,
-        moneda: str = DEFAULT_SUBASTA_MONEDA,
+        moneda: str,
     ) -> dict:
         with db.cursor() as cursor:
             cursor.execute(
@@ -544,7 +542,7 @@ class SubastaRepository:
     def get_exposicion_pagos_pendientes(
         db: Connection,
         cliente_id: int,
-        moneda: str = DEFAULT_SUBASTA_MONEDA,
+        moneda: str,
     ) -> float:
         with db.cursor() as cursor:
             cursor.execute(
@@ -600,7 +598,7 @@ class SubastaRepository:
     @staticmethod
     def get_subasta_basica(db: Connection, subasta_id: int) -> dict | None:
         with db.cursor() as cursor:
-            cursor.execute("SELECT identificador, estado, categoria FROM subastas WHERE identificador = %s", (subasta_id,))
+            cursor.execute("SELECT identificador, estado, categoria, moneda FROM subastas WHERE identificador = %s", (subasta_id,))
             return cursor.fetchone()
 
     @staticmethod
@@ -775,10 +773,11 @@ class SubastaRepository:
                     a.cliente AS "usuarioId",
                     pu.item AS "itemId",
                     pu.importe,
-                    'USD' AS moneda,
+                    s.moneda,
                     pu.ganador = 'si' AS "esGanadoraParcial"
                 FROM pujos pu
                 JOIN asistentes a ON pu.asistente = a.identificador
+                JOIN subastas s ON a.subasta = s.identificador
                 WHERE a.subasta = %s
                 ORDER BY pu.importe DESC
                 """,
