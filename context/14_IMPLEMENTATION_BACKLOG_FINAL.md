@@ -186,7 +186,7 @@ Riesgos principales:
 | Creación de subastas y catálogo por admin | Parcial | Endpoints existen, sin `_require_admin`; crean catálogo e items. Moneda se recibe pero no se persiste en `subastas`. | Servicios TS existen, no hay UI admin. | Swagger incluye `moneda`; DB `subastas` no tiene columna moneda. | Alto: admin abierto y contrato/DB desalineados. | P0 |
 | Seguridad / permisos admin | Parcial | JWT/blacklist OK. Admin hardcodeado ID 1. Muchos endpoints admin sin guard. CORS abierto. | No hay separación UI admin. | Swagger exige admin. DB no modela rol API. | Alto. | P0 |
 | Deploy / variables de entorno / secretos | Parcial | Docker/Render documentado. `.env` no está trackeado. `SECRET_KEY` tiene default inseguro. | `.env` local apunta a `http://localhost:8000`; prod está comentado. | Tercera entrega exige backend online y front instalable. | Medio/alto antes de entrega. | P0 |
-| Tests automatizados | Parcial | 3 archivos de tests, cobertura baja. Suite no terminó limpia en este entorno. | No hay tests frontend fuera de `node_modules`; `node` no disponible. | No hay coverage/lint Python. | Alto para cambios restantes. | P1 |
+| Tests automatizados | Parcial fortalecido | 10 archivos de tests `unittest`; suite backend completa termina limpia sin Postgres real ni red. Email real opt-in con `RUN_REAL_EMAIL_TESTS=1`. | No hay tests frontend fuera de `node_modules`; `node`/`npm` no disponibles en este entorno. | No hay coverage/lint Python. | Medio: falta validación frontend automatizada en entorno con Node. | P1 |
 
 ## 5. Pendientes priorizados
 
@@ -390,18 +390,18 @@ Riesgos principales:
 
 #### P1.6 — Fortalecer tests automatizados
 
-* Estado actual: hay tests parciales de perfil, email y artículo/producto. No hay tests de pujas, cierre, pagos, admin, SSE ni frontend. La suite no terminó limpia en este entorno.
-* Evidencia encontrada: `tests/`, comandos ejecutados, `frontend-da1/package.json`, ausencia de tests frontend fuera de `node_modules`.
+* Estado actual actualizado 2026-06-22: suite backend `unittest` estabilizada. `python -m unittest discover -s tests -v` termina OK sin Postgres real, red ni servicios externos.
+* Evidencia encontrada/actualizada: `tests/`, `context/06_TESTING_AND_VALIDATION.md`, `context/22_P1_6_TESTS_HARDENING_NOTES.md`, `frontend-da1/package.json`, ausencia de tests frontend fuera de `node_modules`.
 * Por qué falta: los cambios P0 son de alto riesgo y necesitan cobertura.
 * Fuente de verdad: `context/06_TESTING_AND_VALIDATION.md`.
-* Archivos involucrados: `tests/`, posible setup frontend.
-* Forma correcta de implementarlo: agregar tests unittest con DB mockeada para services/repos y TestClient para permisos; resolver/aislar test de email real.
-* Cambios backend: tests nuevos; posiblemente marcar integración real de email como opt-in seguro.
-* Cambios frontend: agregar lint/build cuando `node` esté disponible; opcional tests de servicios.
+* Archivos involucrados: `tests/test_email.py`, `tests/test_usuarios.py`, documentación de testing.
+* Forma implementada: suite `unittest` con DB mockeada y llamadas directas a endpoints async/services/repos; integración real de email aislada con `RUN_REAL_EMAIL_TESTS=1`; `test_usuarios` evita el `TestClient` localmente colgado y conserva asserts de SQL/commit.
+* Cambios backend: envío real de email opt-in; `GET /usuarios/me`, `404` y `DELETE /usuarios/me/foto` estabilizados sin cuelgue.
+* Cambios frontend: sin infraestructura nueva; `package.json` sólo expone `npm run lint`, pendiente por falta de Node/npm.
 * Cambios DB / migración si aplica: no.
-* Tests recomendados: admin guard, registro pendiente, idempotencia, join, puja, cierre, pago, multa.
-* Riesgos: mocks mal armados pueden ocultar errores SQL.
-* Dependencias: entorno con Python/Node estable.
+* Tests agregados/ejecutados: suite completa 92 tests OK, 1 skip opt-in de email real. Se mantienen coberturas de admin guard, registro pendiente, idempotencia, join/stream, puja, cierre, pago, multa, listados/detalles, garantía y consignación.
+* Riesgos: `fastapi.testclient.TestClient` cuelga en este virtualenv incluso con app mínima; si se quiere reintroducir, revisar versiones de FastAPI/Starlette/AnyIO/Python.
+* Dependencias: entorno con Python para backend; Node/npm para validar frontend.
 * Spec sugerida: `context/specs/18-deploy-release-hardening.md`.
 
 ### P2 — Mejoras / deuda técnica
@@ -701,7 +701,7 @@ Pruebas mínimas:
 - [ ] Admin puede crear subastas y cargar catálogo.
 - [ ] Sin secretos commiteados.
 - [ ] `SECRET_KEY` configurado por env en producción.
-- [ ] Tests mínimos pasando sin depender de internet.
+- [x] Tests mínimos pasando sin depender de internet.
 - [ ] Front lint/build verificado en entorno con Node.
 - [ ] Pendientes no implementados justificados como fuera de alcance o `PENDIENTE DE CONFIRMAR`.
 

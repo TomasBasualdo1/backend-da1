@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 import httpx
@@ -121,8 +122,14 @@ class TestEmailService(unittest.TestCase):
         self.assertEqual(args[0], "from@example.com")
         self.assertEqual(args[1], "target@example.com")
 
-    @unittest.skipIf(not getattr(settings, "email_api_key", None), "No API key found, skipping integration test.")
+    @unittest.skipUnless(
+        os.getenv("RUN_REAL_EMAIL_TESTS") == "1",
+        "Set RUN_REAL_EMAIL_TESTS=1 to send real emails.",
+    )
     def test_integration_real_send(self):
+        if not getattr(settings, "email_api_key", None):
+            self.skipTest("No API key found, skipping integration test.")
+
         to_email = "tomaa.basualdo@gmail.com"
         print(f"\n[INTEGRATION TEST] sending real email to {to_email} via provider '{settings.email_provider}'...")
         try:
@@ -206,5 +213,4 @@ class TestConfigValidation(unittest.TestCase):
             email_api_key="sendgrid-api-key",
         )
         self.assertEqual(cfg.app_env, "production")
-
 
