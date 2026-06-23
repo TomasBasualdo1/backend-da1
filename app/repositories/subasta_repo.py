@@ -79,16 +79,17 @@ class SubastaRepository:
                     INSERT INTO subastas (
                         fecha, hora, estado, subastador, ubicacion,
                         capacidadasistentes, tienedeposito, seguridadpropia,
-                        categoria, moneda
+                        categoria, moneda, duracion_item_minutos
                     )
-                    VALUES (%s, %s, 'abierta', %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, 'abierta', %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING
                         identificador AS id,
                         fecha,
                         hora::text AS hora,
                         estado,
                         categoria,
-                        ubicacion
+                        ubicacion,
+                        duracion_item_minutos AS "duracionItemMinutos"
                     """,
                     (
                         subasta.fecha,
@@ -100,6 +101,7 @@ class SubastaRepository:
                         "si" if subasta.seguridadPropia else "no",
                         subasta.categoria.value,
                         subasta.moneda.value,
+                        subasta.duracionItemMinutos,
                     ),
                 )
                 created = cursor.fetchone()

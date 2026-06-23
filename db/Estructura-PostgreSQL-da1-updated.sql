@@ -81,6 +81,7 @@ CREATE TABLE public.subastas (
   seguridadpropia character varying CHECK (seguridadpropia::text = ANY (ARRAY['si'::character varying, 'no'::character varying]::text[])),
   categoria character varying CHECK (categoria::text = ANY (ARRAY['comun'::character varying, 'especial'::character varying, 'plata'::character varying, 'oro'::character varying, 'platino'::character varying]::text[])),
   moneda character varying NOT NULL DEFAULT 'USD',
+  duracion_item_minutos integer NOT NULL DEFAULT 30,
   CONSTRAINT subastas_pkey PRIMARY KEY (identificador),
   CONSTRAINT fk_subastas_subastadores FOREIGN KEY (subastador) REFERENCES public.subastadores(identificador)
 );

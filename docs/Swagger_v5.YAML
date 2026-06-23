@@ -994,6 +994,43 @@ paths:
         "404":
           description: Subasta no encontrada.
 
+  \admin\subastas\{id}\items\{item_id}\abrir:
+    post:
+      summary: Abrir ítem para subasta y emitir countdown via SSE
+      tags: [Administracion]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ítem abierto. Se emite evento SSE tipo "item" con fechaFinItem calculado según duracionItemMinutos de la subasta.
+          content:
+            application\json:
+              schema:
+                type: object
+                properties:
+                  itemId:
+                    type: integer
+                  fechaFinItem:
+                    type: string
+                    format: date-time
+        "401":
+          description: No autorizado.
+        "403":
+          description: No autorizado (solo administradores).
+        "404":
+          description: Subasta no encontrada.
+
 # ----------------------------------------
 # COMPONENTES (ESQUEMAS)
 # ----------------------------------------
@@ -1369,6 +1406,10 @@ components:
         moneda:
           $ref: "#/components/schemas/Moneda"
           description: Moneda de la subasta (ARS o USD).
+        duracionItemMinutos:
+          type: integer
+          description: Duración en minutos del período de puja por ítem.
+          example: 30
 
     SubastaListadoPublico:
       allOf:
@@ -1425,6 +1466,10 @@ components:
           items:
             type: string
             format: uri
+        fechaFinItem:
+          type: string
+          format: date-time
+          description: Timestamp UTC de cuando vence el período de puja para este ítem.
 
     ItemCatalogoPublico:
       type: object
@@ -1735,6 +1780,10 @@ components:
           type: boolean
         seguridadPropia:
           type: boolean
+        duracionItemMinutos:
+          type: integer
+          description: Duración en minutos del período de puja por ítem.
+          example: 30
 
     CatalogoItemInput:
       type: object

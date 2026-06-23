@@ -18,6 +18,7 @@ from app.services.admin_service import AdminService
 from app.services.category_service import CategoryService
 from app.services.email_service import EmailService
 from app.services.subasta_service import SubastaService
+from app.services.streamer import SubastaStreamer
 
 router = APIRouter(prefix="/admin")
 
@@ -115,6 +116,33 @@ async def add_catalog_item(
 ):
     _require_admin(user)
     return AdminService.add_catalog_item(db, id, body, user.get("usuarioId"))
+
+
+@router.post("/subastas/{id}/items/{item_id}/abrir")
+async def open_catalog_item(
+    id: int,
+    item_id: int,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    from datetime import datetime, timezone, timedelta
+    with db.cursor() as cursor:
+        cursor.execute(
+            "SELECT duracion_item_minutos FROM subastas WHERE identificador = %s",
+            (id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Subasta no encontrada.")
+        duracion = row["duracion_item_minutos"]
+
+    fecha_fin = datetime.now(timezone.utc) + timedelta(minutes=duracion)
+    await SubastaStreamer.broadcast(id, "item", {
+        "itemId": item_id,
+        "fechaFinItem": fecha_fin.isoformat(),
+    })
+    return {"itemId": item_id, "fechaFinItem": fecha_fin.isoformat()}
 
 
 @router.get("/usuarios/pendientes", response_model=list[Usuario])

@@ -236,6 +236,7 @@ class SubastaListado(BaseModel):
     categoria: Optional[Categoria] = None
     ubicacion: Optional[str] = None
     moneda: Optional[Moneda] = None
+    duracionItemMinutos: Optional[int] = None
 
 
 class SubastaListadoPublico(SubastaListado):
@@ -262,6 +263,7 @@ class ItemCatalogo(BaseModel):
     )
     subastado: Optional[Subastado] = None
     fotos: Optional[List[AnyUrl]] = None
+    fechaFinItem: Optional[datetime] = None
 
 
 class ItemCatalogoPublico(BaseModel):
@@ -440,6 +442,7 @@ class SubastaCreate(BaseModel):
     capacidadAsistentes: Optional[int] = None
     tieneDeposito: Optional[bool] = None
     seguridadPropia: Optional[bool] = None
+    duracionItemMinutos: int = 30
 
 
 class CatalogoItemInput(BaseModel):
