@@ -290,6 +290,63 @@ class TestSubastaPagoService(unittest.TestCase):
 
 
 class TestSubastaPagoRepository(unittest.TestCase):
+    def test_usuario_sin_ganar_no_tiene_deuda_en_detalle(self):
+        """Verifica que un user que no gano items no vea tieneDeuda=True"""
+        db = MagicMock()
+        subasta_basica = {"identificador": 6, "estado": "abierta", "categoria": "comun", "moneda": "ARS"}
+        detalle = {"id": 6, "estado": "cerrada", "catalogo": []}
+        pago_inexistente = None
+
+        with patch(
+            "app.services.subasta_service.SubastaRepository.get_subasta_basica",
+            return_value=subasta_basica,
+        ), patch(
+            "app.services.subasta_service.SubastaRepository.get_detalle",
+            return_value=detalle,
+        ), patch(
+            "app.services.subasta_service.SubastaRepository.get_pago_usuario",
+            return_value=pago_inexistente,
+        ):
+            result = SubastaService.get_detalle(
+                db, 6, "http://base", usuario_id=99, categoria_usuario="comun"
+            )
+
+        self.assertEqual(result["tieneDeuda"], False)
+
+    def test_usuario_ganador_tiene_deuda_en_detalle(self):
+        """Verifica que un user que gano items vea tieneDeuda=True"""
+        db = MagicMock()
+        subasta_basica = {"identificador": 5, "estado": "abierta", "categoria": "comun", "moneda": "USD"}
+        detalle = {"id": 5, "estado": "cerrada", "catalogo": []}
+        pago = pago_pendiente(subastaId=5, usuarioId=20)
+
+        with patch(
+            "app.services.subasta_service.SubastaRepository.get_subasta_basica",
+            return_value=subasta_basica,
+        ), patch(
+            "app.services.subasta_service.SubastaRepository.get_detalle",
+            return_value=detalle,
+        ), patch(
+            "app.services.subasta_service.SubastaRepository.get_pago_usuario",
+            return_value=pago,
+        ):
+            result = SubastaService.get_detalle(
+                db, 5, "http://base", usuario_id=20, categoria_usuario="comun"
+            )
+
+        self.assertEqual(result["tieneDeuda"], True)
+
+    def test_get_pago_usuario_devuelve_none_cuando_no_existe(self):
+        """Verifica que get_pago_usuario devuelve None para user sin pago"""
+        db = MagicMock()
+        cursor = MagicMock()
+        cursor.fetchone.return_value = None
+        db.cursor.return_value.__enter__.return_value = cursor
+
+        result = SubastaRepository.get_pago_usuario(db, subasta_id=6, cliente_id=99)
+
+        self.assertIsNone(result)
+
     def test_generar_pago_reusa_pago_existente_para_evitar_duplicados(self):
         db = MagicMock()
         cursor = MagicMock()

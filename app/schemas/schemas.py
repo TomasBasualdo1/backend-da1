@@ -441,6 +441,7 @@ class CatalogoItemInput(BaseModel):
 
 class SubastaDetalle(SubastaListado):
     catalogo: Optional[List[ItemCatalogo]] = None
+    tieneDeuda: Optional[bool] = None
 
 
 class SubastaDetallePublica(SubastaListadoPublico):

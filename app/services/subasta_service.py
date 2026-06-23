@@ -52,7 +52,11 @@ class SubastaService:
                 detail="Tu categoria no es suficiente para ver el detalle de esta subasta",
             )
 
-        return SubastaRepository.get_detalle(db, subasta_id, base_url)
+        detalle = SubastaRepository.get_detalle(db, subasta_id, base_url)
+        if detalle:
+            pago = SubastaRepository.get_pago_usuario(db, subasta_id, usuario_id)
+            detalle["tieneDeuda"] = pago is not None and pago.get("estado") == "pendiente"
+        return detalle
 
     # ─────────────────── ADMIN ───────────────────
 
