@@ -243,7 +243,8 @@ class UsuarioRepository:
                 ca.estado_registro as "estadoRegistro",
                 c.categoria,
                 COALESCE(ca.multa_activa, false) as "multaActiva",
-                COALESCE(ca.bloqueado, false) as bloqueado
+                COALESCE(ca.bloqueado, false) as bloqueado,
+                (SELECT COUNT(DISTINCT mp.tipo) FROM medios_pago mp WHERE mp.cliente_id = p.identificador AND mp.estado_verificacion = 'validado') as "validatedPaymentDiversity"
             FROM personas p
             LEFT JOIN personas_adicionales pa ON p.identificador = pa.identificador
             JOIN clientes c ON p.identificador = c.identificador
@@ -281,6 +282,30 @@ class UsuarioRepository:
                 (categoria, usuario_id),
             )
         db.commit()
+
+    @staticmethod
+    def get_user_category(db: Connection, usuario_id: int) -> str | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT categoria FROM clientes WHERE identificador = %s",
+                (usuario_id,),
+            )
+            row = cursor.fetchone()
+            return row["categoria"] if row else None
+
+    @staticmethod
+    def get_validated_payment_diversity(db: Connection, usuario_id: int) -> int:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(DISTINCT tipo) as diversity
+                FROM medios_pago
+                WHERE cliente_id = %s AND estado_verificacion = 'validado'
+                """,
+                (usuario_id,),
+            )
+            row = cursor.fetchone()
+            return row["diversity"] if row else 0
 
     @staticmethod
     def get_person_for_profile_update(db: Connection, usuario_id: int) -> dict | None:

@@ -7,6 +7,7 @@ from psycopg import Connection
 from app.repositories.puja_repo import PujaRepository
 from app.repositories.subasta_repo import SubastaRepository
 from app.schemas.schemas import CatalogoItemInput, SubastaCreate
+from app.services.category_service import CategoryService
 
 
 CATEGORIAS_PESO = {"comun": 1, "especial": 2, "plata": 3, "oro": 4, "platino": 5}
@@ -754,6 +755,8 @@ class SubastaService:
                 f"Modo de entrega: {modo_entrega}.",
             )
             db.commit()
+
+            CategoryService.evaluate_and_upgrade(db, usuario_id)
 
             return {"message": "Pago confirmado exitosamente"}
         except HTTPException:

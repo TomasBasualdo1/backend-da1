@@ -2,6 +2,7 @@ from app.schemas.schemas import (
     AceptarTasacionRequest,
     Admitido,
     Articulo,
+    AutoCategoryResult,
     ArticuloEvaluacion,
     ArticuloInput,
     Categoria,

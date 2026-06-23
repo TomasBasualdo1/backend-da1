@@ -6,6 +6,7 @@ from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import (
     Articulo,
     ArticuloEvaluacion,
+    AutoCategoryResult,
     CatalogoItemInput,
     MedioPagoVerificacion,
     SubastaCreate,
@@ -14,6 +15,7 @@ from app.schemas.schemas import (
     UpdateCategoriaRequest,
 )
 from app.services.admin_service import AdminService
+from app.services.category_service import CategoryService
 from app.services.email_service import EmailService
 from app.services.subasta_service import SubastaService
 
@@ -142,6 +144,16 @@ async def update_user_category(
 ):
     _require_admin(user)
     return AdminService.update_user_category(db, id, body.categoria.value)
+
+
+@router.post("/usuarios/{id}/recalcular-categoria", response_model=AutoCategoryResult)
+async def recalculate_user_category(
+    id: int,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return CategoryService.evaluate_and_upgrade(db, id)
 
 
 @router.get("/articulos/pendientes")

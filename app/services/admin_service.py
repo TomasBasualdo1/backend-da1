@@ -4,6 +4,7 @@ from psycopg import Connection
 from app.repositories.articulo_repo import ArticuloRepository
 from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import ArticuloEvaluacion, CatalogoItemInput, SubastaCreate
+from app.services.category_service import CategoryService
 from app.services.subasta_service import SubastaService
 
 
@@ -37,7 +38,13 @@ class AdminService:
                 ),
             )
 
+            cliente_id = row["cliente_id"]
+
         db.commit()
+
+        if estado == "validado":
+            CategoryService.evaluate_and_upgrade(db, cliente_id)
+
         return {"message": f"Medio de pago {estado} exitosamente."}
 
     @staticmethod

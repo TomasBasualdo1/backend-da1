@@ -92,6 +92,9 @@ class Usuario(BaseModel):
     admitido: Optional[Admitido] = None
     estadoRegistro: Optional[EstadoRegistro] = None
     categoria: Optional[Categoria] = None
+    validatedPaymentDiversity: Optional[int] = Field(
+        None, description='Cantidad de tipos distintos de medios de pago validados.'
+    )
     multaActiva: Optional[bool] = Field(
         None, description='Si el usuario tiene una multa del 10% sin pagar.'
     )
@@ -118,6 +121,13 @@ class UsuarioVerificacion(BaseModel):
 
 class UpdateCategoriaRequest(BaseModel):
     categoria: Categoria
+
+
+class AutoCategoryResult(BaseModel):
+    categoriaAnterior: Categoria
+    categoriaNueva: Categoria
+    motivo: str
+    upgraded: bool = Field(False)
 
 
 class UsuarioMetricas(BaseModel):
