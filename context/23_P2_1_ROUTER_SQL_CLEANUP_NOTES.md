@@ -11,7 +11,7 @@ Mover SQL inline de routers FastAPI hacia services/repositories, sin cambiar rut
 - Worktree inicial: limpio.
 - `grep -R "cursor.execute" -n app/api` detectó SQL inline en `auth.py`, `usuarios.py`, `notificaciones.py`, `uploads.py` y `paises.py`.
 - `grep -R "db.cursor" -n app/api` detectó cursores inline en los mismos routers.
-- Se leyó el contrato backend (`docs/Swagger_v4.YAML`, `app/schemas/schemas.py`) y el esquema relevante (`db/Estructura-PostgreSQL-da1-updated.sql`).
+- Se leyó el contrato backend (`docs/Swagger_v5.YAML`, `app/schemas/schemas.py`) y el esquema relevante (`db/Estructura-PostgreSQL-da1-updated.sql`).
 - Se leyó frontend sólo para confirmar contrato: `userService.ts`, `authService.ts` y `profile.tsx`. No hubo cambios frontend.
 
 ## Preparación Git

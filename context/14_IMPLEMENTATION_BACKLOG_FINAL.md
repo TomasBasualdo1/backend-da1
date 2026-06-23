@@ -9,7 +9,7 @@ Se conserva el nombre `14_IMPLEMENTATION_BACKLOG_FINAL.md` porque la carpeta `co
 Regla usada para clasificar estado:
 
 - Para estado actual gana el código real.
-- Para requisitos esperados ganan `context/TPO_DAI_1C2026.md` y `docs/Swagger_v4.YAML`.
+- Para requisitos esperados ganan `context/TPO_DAI_1C2026.md` y `docs/Swagger_v5.YAML`.
 - Si Swagger, frontend y backend no coinciden, se documenta la desalineación.
 - Si no se puede confirmar, queda marcado como `PENDIENTE DE CONFIRMAR`.
 
@@ -79,8 +79,8 @@ Regla usada para clasificar estado:
 
 ### Swagger/API contract
 
-- `docs/Swagger_v4.YAML`
-- `frontend-da1/context/Swagger_v4.YAML` se consideró copia del contrato, no fuente primaria.
+- `docs/Swagger_v5.YAML`
+- `frontend-da1/context/Swagger_v5.YAML` se consideró copia del contrato, no fuente primaria.
 
 ### Base de datos
 
@@ -195,9 +195,9 @@ Riesgos principales:
 #### P0.1 — Desacoplar auto-aprobación del registro
 
 * Estado actual: `/auth/registro/paso1` crea el usuario pendiente y luego llama inmediatamente a `UsuarioRepository.aprobar_registro`, setea `admitido='si'`, `estado_registro='aprobado'` y envía token.
-* Evidencia encontrada: `app/api/auth.py:registro_paso1`, `app/repositories/usuario_repo.py:aprobar_registro`, `context/07_DOMAIN_NOTES.md`, `docs/Swagger_v4.YAML` describe paso 1 como pendiente de verificación.
+* Evidencia encontrada: `app/api/auth.py:registro_paso1`, `app/repositories/usuario_repo.py:aprobar_registro`, `context/07_DOMAIN_NOTES.md`, `docs/Swagger_v5.YAML` describe paso 1 como pendiente de verificación.
 * Por qué falta: la consigna exige verificación externa por la empresa antes de asignar categoría y habilitar paso 2. El flujo actual saltea esa revisión.
-* Fuente de verdad: `context/TPO_DAI_1C2026.md`, `docs/Swagger_v4.YAML`, `db/Estructura-PostgreSQL-da1-updated.sql`.
+* Fuente de verdad: `context/TPO_DAI_1C2026.md`, `docs/Swagger_v5.YAML`, `db/Estructura-PostgreSQL-da1-updated.sql`.
 * Archivos involucrados: `app/api/auth.py`, `app/api/admin.py`, `app/repositories/usuario_repo.py`, `app/services/email_service.py`, `frontend-da1/app/(auth)/register-step1.tsx`, `frontend-da1/app/(auth)/register-step2.tsx`.
 * Forma correcta de implementarlo: dejar paso 1 en `pendiente` y mover el envío del token de paso 2 exclusivamente al endpoint admin de aprobación. El rechazo debe quedar con `estado_registro='rechazado'`, `admitido='no'` y motivo.
 * Cambios backend: quitar llamada a `aprobar_registro` de `registro_paso1`; devolver mensaje de solicitud recibida; asegurar que `/admin/usuarios/{id}/verificar` sólo lo pueda ejecutar admin.
@@ -211,9 +211,9 @@ Riesgos principales:
 #### P0.2 — Proteger todos los endpoints admin y el cierre de subasta
 
 * Estado actual: `_require_admin` existe pero sólo se usa en `/admin/articulos/{id}/evaluar`. No se usa en verificar usuarios, verificar medios, crear subasta, agregar item ni cerrar subasta.
-* Evidencia encontrada: `app/api/admin.py`, `app/api/subastas.py:close_auction`, `context/10_API_REFERENCE.md`, `docs/Swagger_v4.YAML`.
+* Evidencia encontrada: `app/api/admin.py`, `app/api/subastas.py:close_auction`, `context/10_API_REFERENCE.md`, `docs/Swagger_v5.YAML`.
 * Por qué falta: Swagger y la consigna asumen acciones de empresa/admin; el código permite que cualquier usuario autenticado las ejecute.
-* Fuente de verdad: `docs/Swagger_v4.YAML` y `context/13_SECURITY.md`.
+* Fuente de verdad: `docs/Swagger_v5.YAML` y `context/13_SECURITY.md`.
 * Archivos involucrados: `app/api/admin.py`, `app/api/subastas.py`, `app/dependencies.py`, opcionalmente `app/repositories/usuario_repo.py`.
 * Forma correcta de implementarlo: aplicar un guard admin consistente en cada ruta administrativa y en `/subastas/{id}/cerrar`. Mantener `usuarioId == 1` si no hay decisión de rol real, pero centralizarlo.
 * Cambios backend: llamar `_require_admin(user)` en endpoints faltantes; idealmente moverlo a una dependencia `require_admin`.
@@ -227,7 +227,7 @@ Riesgos principales:
 #### P0.3 — Implementar idempotencia real de pujas y cerrar el doble tap
 
 * Estado actual: Swagger define header `Idempotency-Key`; frontend lo envía en `auctionService.pujar`; backend no lo recibe ni persiste. El lock `FOR UPDATE` serializa concurrencia sobre el item, pero no deduplica reintentos.
-* Evidencia encontrada: `docs/Swagger_v4.YAML` en `/subastas/{id}/items/{itemId}/pujar`; `frontend-da1/src/services/auctionService.ts`; `app/api/subastas.py:place_bid`; `app/services/subasta_service.py:procesar_puja`; `app/repositories/puja_repo.py` está vacío.
+* Evidencia encontrada: `docs/Swagger_v5.YAML` en `/subastas/{id}/items/{itemId}/pujar`; `frontend-da1/src/services/auctionService.ts`; `app/api/subastas.py:place_bid`; `app/services/subasta_service.py:procesar_puja`; `app/repositories/puja_repo.py` está vacío.
 * Por qué falta: doble tap, retry de red o reenvío puede crear dos pujas válidas si ambas cumplen los límites después de la primera.
 * Fuente de verdad: consigna TPO sobre no permitir otra puja hasta confirmación, Swagger y spec 07.
 * Archivos involucrados: `app/api/subastas.py`, `app/services/subasta_service.py`, `app/repositories/subasta_repo.py` o `app/repositories/puja_repo.py`, `db/`, `frontend-da1/app/(tabs)/live.tsx`.
@@ -245,7 +245,7 @@ Riesgos principales:
 * Estado actual: backend expone SSE y broadcast de pujas/cierre, pero el frontend no abre conexión SSE. El endpoint sólo valida token, no join/categoría/medio/sesión. `SubastaStreamer` vive en memoria.
 * Evidencia encontrada: `app/api/subastas.py:stream_auction`, `app/services/streamer.py`, `frontend-da1/app/(tabs)/live.tsx`, `frontend-da1/src/types/common.ts`, spec 08.
 * Por qué falta: la consigna exige que usuarios conectados reciban ofertas en tiempo real; hoy sólo ve cambios locales y carga historial puntual.
-* Fuente de verdad: `context/TPO_DAI_1C2026.md`, `docs/Swagger_v4.YAML`, `frontend-da1/context/specs/08-streaming-sse.md`.
+* Fuente de verdad: `context/TPO_DAI_1C2026.md`, `docs/Swagger_v5.YAML`, `frontend-da1/context/specs/08-streaming-sse.md`.
 * Archivos involucrados: `app/api/subastas.py`, `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/services/streamer.py`, `frontend-da1/app/(tabs)/live.tsx`, posible dependencia frontend para SSE en React Native.
 * Forma correcta de implementarlo: validar que el usuario puede ver/participar en la subasta antes de suscribir; en frontend abrir SSE al unirse, actualizar item/historial ante evento y cerrar conexión al salir.
 * Cambios backend: agregar `db` al endpoint de stream; validar subasta abierta, categoría, sesión activa o al menos acceso permitido; documentar mono-worker.
@@ -313,7 +313,7 @@ Riesgos principales:
 * Evidencia encontrada: `app/repositories/subasta_repo.py:get_publicas`, `get_detalle`, `schemas.py:Subastado`, `frontend-da1/src/types/auction.ts`.
 * Por qué falta: contrato y UI esperan semántica estable para públicas/autenticadas.
 * Fuente de verdad: Swagger y spec 05.
-* Archivos involucrados: `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v4.YAML`, `frontend-da1/src/types/auction.ts`, pantallas de subastas.
+* Archivos involucrados: `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v5.YAML`, `frontend-da1/src/types/auction.ts`, pantallas de subastas.
 * Forma correcta de implementarlo: filtrar estado según contrato; definir si autenticado puede ver todas o sólo elegibles; corregir enum `Subastado` o normalizar frontend/backend de forma consistente.
 * Cambios backend: queries filtradas por `estado='abierta'` en listados, detalle público abierto, validación de categoría en detalle autenticado, `Subastado` `si/no`.
 * Cambios frontend: normalización defensiva en `auctionService` y mensaje claro para `403` de detalle autenticado.
@@ -377,7 +377,7 @@ Riesgos principales:
 * Evidencia encontrada/actualizada: `db/Estructura-PostgreSQL-da1-updated.sql:medios_pago.limite_reservado`, `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `tests/test_garantia_limite.py`, `frontend-da1/app/(tabs)/live.tsx`.
 * Por qué faltaba: el TPO dice que las compras no pueden superar la garantía cuando el usuario dejo un monto reservado.
 * Fuente de verdad: TPO y nota `context/21_P1_5_GARANTIA_LIMITE_NOTES.md`.
-* Archivos involucrados: `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v4.YAML`, `tests/test_garantia_limite.py`, `frontend-da1/src/types/auction.ts`, `frontend-da1/app/(tabs)/live.tsx`.
+* Archivos involucrados: `app/services/subasta_service.py`, `app/repositories/subasta_repo.py`, `app/schemas/schemas.py`, `docs/Swagger_v5.YAML`, `tests/test_garantia_limite.py`, `frontend-da1/src/types/auction.ts`, `frontend-da1/app/(tabs)/live.tsx`.
 * Forma implementada: no reserva al join; valida al pujar, despues de limites 1%/20% y antes de `registrar_puja`; replay idempotente completed devuelve respuesta cacheada sin recalcular; rechazo por garantia hace rollback y no emite SSE.
 * Exposicion considerada: pagos pendientes del usuario en USD (`total_final`) + mejores pujas vigentes por item en subastas abiertas donde el usuario lidera + puja candidata; si ya lidera el mismo item, se reemplaza su importe anterior.
 * Garantia considerada: suma medios propios `validado`, `limite_reservado > 0`, moneda `USD`, tipo `cheque_certificado` o `cuenta_bancaria`.
@@ -416,10 +416,11 @@ Riesgos principales:
 
 #### P2.2 — Corregir modelos generados y nombres inconsistentes
 
-* Estado actual: `schemas.py` tiene enums generados como `Estado1`, `Tipo2`, `Subastado.False_ = False`; TS espera otros valores.
-* Evidencia encontrada: `app/schemas/schemas.py`, `frontend-da1/src/types/auction.ts`.
-* Forma correcta de implementarlo: actualizar Swagger y regenerar modelos Pydantic/TS juntos.
-* Tests recomendados: response_model de detalle con item no vendido.
+* Estado actual actualizado 2026-06-22: implementado.
+* Evidencia encontrada/actualizada: `app/schemas/schemas.py`, `docs/Swagger_v5.YAML`, `frontend-da1/context/Swagger_v5.YAML`.
+* Forma correcta de implementarlo: actualizar Swagger (definiendo enums como componentes) y renombrar manualmente en schemas de Pydantic/imports para minimizar el blast radius. Sincronizar el Swagger en frontend.
+* Tests agregados/ejecutados: `tests/test_modelos_contrato.py` (6 tests nuevos pasados). Se validaron serialización de enums renombrados, `subastado: "no"` en detalle público, subastas con moneda real, y tipo `cierre` en eventos SSE.
+* Notas de implementación: ver `context/25_P2_2_MODELOS_CONTRATO_NOTES.md`.
 
 #### P2.3 — Definir moneda real de subasta
 

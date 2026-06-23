@@ -8,7 +8,7 @@ Registro de qué documentación previa existía y qué se hizo con ella al const
 |-----------|-----------|--------|
 | `app/context/` | 4 stubs SDD: `project-overview.md`, `architecture-context.md`, `code-standards.md`, `ai-workflow-rules.md` (cortos, con `[cite: N]` de la consigna; mezclaban front y back) | Redundante / desubicado (dentro de `app/`) |
 | `DOCUMENTATION.md` (raíz) | Doc técnica extensa (tech stack, estructura, endpoints, DB, deploy) en español, buena calidad | Útil, complementaria |
-| `docs/` | `Swagger_v4.YAML` (contrato), SQL histórico, `run_migration.py` | Útil (fuente de verdad) |
+| `docs/` | `Swagger_v5.YAML` (contrato), SQL histórico, `run_migration.py` | Útil (fuente de verdad) |
 | `db/` | Esquema PostgreSQL actual + seeds demo + rollback | Útil (fuente de verdad) |
 | `plans/login-implementation.md` | Nota de planificación de login | Histórico |
 | `context/TPO_DAI_1C2026.md` | **Consigna oficial del TPO** (agregada por el equipo) | Conservada como fuente de verdad del dominio |

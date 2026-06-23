@@ -48,7 +48,7 @@ backend-da1/
 │   ├── repositories/       # Acceso a datos (SQL crudo con psycopg)
 │   └── schemas/schemas.py  # Modelos Pydantic (generados desde Swagger)
 ├── db/                     # Esquema SQL real + seeds demo + rollback
-├── docs/                   # Swagger_v4.YAML + SQL histórico + run_migration
+├── docs/                   # Swagger_v5.YAML + SQL histórico + run_migration
 ├── tests/                  # Tests unittest (mockean la DB)
 ├── plans/                  # Notas de planificación previas
 ├── Dockerfile              # Imagen para Render
@@ -57,6 +57,6 @@ backend-da1/
 
 ## Relación con el otro repo
 
-`frontend-da1` consume esta API por HTTP (REST) con JWT Bearer. El contrato lo define `docs/Swagger_v4.YAML`, del cual se generaron tanto los modelos Pydantic del backend como los tipos TypeScript del frontend. Detalle en [12_INTEGRATION.md](12_INTEGRATION.md).
+`frontend-da1` consume esta API por HTTP (REST) con JWT Bearer. El contrato lo define `docs/Swagger_v5.YAML`, del cual se generaron tanto los modelos Pydantic del backend como los tipos TypeScript del frontend. Detalle en [12_INTEGRATION.md](12_INTEGRATION.md).
 
 > **Nota importante:** el endpoint de tiempo real (SSE `/subastas/{id}/stream`) existe en el backend pero **el frontend todavía no lo consume**. Ver [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md).

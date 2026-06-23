@@ -1013,6 +1013,43 @@ components:
       type: string
       enum: [ARS, USD]
 
+    EstadoMulta:
+      type: string
+      enum: [pendiente, pagada]
+
+    EstadoSubasta:
+      type: string
+      enum: [abierta, cerrada]
+
+    EstadoPago:
+      type: string
+      enum: [pendiente, pagado, vencido]
+
+    EstadoSesionSubasta:
+      type: string
+      enum: [activa, finalizada]
+
+    EstadoArticulo:
+      type: string
+      enum: [pendiente, en_inspeccion, aprobado, rechazado, devuelto]
+
+    EstadoEvaluacionArticulo:
+      type: string
+      enum: [aprobado, rechazado]
+
+    EstadoVerificacionMedioPagoInput:
+      type: string
+      enum: [validado, rechazado]
+
+    TipoNotificacion:
+      type: string
+      enum: [pago, subasta, sistema]
+
+    TipoStreamEvent:
+      type: string
+      enum: [puja, item, cierre]
+
+
     RegistroPaso1:
       type: object
       required:
@@ -1270,8 +1307,7 @@ components:
       required: [estadoVerificacion]
       properties:
         estadoVerificacion:
-          type: string
-          enum: [validado, rechazado]
+          $ref: "#/components/schemas/EstadoVerificacionMedioPagoInput"
 
     Multa:
       type: object
@@ -1282,8 +1318,7 @@ components:
           type: number
           format: float
         estado:
-          type: string
-          enum: [pendiente, pagada]
+          $ref: "#/components/schemas/EstadoMulta"
         fechaLimite:
           type: string
           format: date-time
@@ -1305,8 +1340,7 @@ components:
         id:
           type: integer
         tipo:
-          type: string
-          enum: [pago, subasta, sistema]
+          $ref: "#/components/schemas/TipoNotificacion"
         mensaje:
           type: string
         fechaHora:
@@ -1327,17 +1361,14 @@ components:
           type: string
           format: time
         estado:
-          type: string
-          enum: [abierta, cerrada]
+          $ref: "#/components/schemas/EstadoSubasta"
         categoria:
           $ref: "#/components/schemas/Categoria"
         ubicacion:
           type: string
         moneda:
-          allOf:
-            - $ref: "#/components/schemas/Moneda"
-          description: Actualmente el backend responde USD por defecto porque subastas no tiene columna moneda en el esquema vigente.
-          default: USD
+          $ref: "#/components/schemas/Moneda"
+          description: Moneda de la subasta (ARS o USD).
 
     SubastaListadoPublico:
       allOf:
@@ -1518,8 +1549,7 @@ components:
           type: string
           enum: [envio, retiro]
         estado:
-          type: string
-          enum: [pendiente, pagado, vencido]
+          $ref: "#/components/schemas/EstadoPago"
         fechaLimitePago:
           type: string
           format: date-time
@@ -1548,8 +1578,7 @@ components:
         usuarioId:
           type: integer
         estado:
-          type: string
-          enum: [activa, finalizada]
+          $ref: "#/components/schemas/EstadoSesionSubasta"
         fechaHoraInicio:
           type: string
           format: date-time
@@ -1558,8 +1587,7 @@ components:
       type: object
       properties:
         type:
-          type: string
-          enum: [puja, item]
+          $ref: "#/components/schemas/TipoStreamEvent"
         fechaHora:
           type: string
           format: date-time
@@ -1627,8 +1655,7 @@ components:
           type: string
           format: date
         estado:
-          type: string
-          enum: [pendiente, en_inspeccion, aprobado, rechazado, devuelto]
+          $ref: "#/components/schemas/EstadoArticulo"
         motivoRechazo:
           type: string
           nullable: true
@@ -1651,8 +1678,7 @@ components:
       required: [estado]
       properties:
         estado:
-          type: string
-          enum: [aprobado, rechazado]
+          $ref: "#/components/schemas/EstadoEvaluacionArticulo"
         motivoRechazo:
           type: string
         precioBasePropuesto:

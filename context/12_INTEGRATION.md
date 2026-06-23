@@ -6,7 +6,7 @@ Vista desde el **backend**. (La contraparte está en `frontend-da1/context/11_IN
 
 - `frontend-da1` es una app **Expo / React Native (TypeScript)** que consume esta API por **HTTP REST con JWT Bearer**.
 - Son **dos repos git independientes** (remotes `TomasBasualdo1/backend-da1` y `.../frontend-da1`), abiertos juntos en el workspace VS Code. **No es un monorepo**: no comparten build ni package manager.
-- **Contrato compartido**: `docs/Swagger_v4.YAML`. De ahí se generaron los modelos Pydantic (`app/schemas/schemas.py`) y los tipos TS (`frontend-da1/src/types/`). El mismo `Swagger_v4.YAML` está copiado en `frontend-da1/context/`.
+- **Contrato compartido**: `docs/Swagger_v5.YAML`. De ahí se generaron los modelos Pydantic (`app/schemas/schemas.py`) y los tipos TS (`frontend-da1/src/types/`). El mismo `Swagger_v5.YAML` está copiado en `frontend-da1/context/`.
 - El esquema SQL también está duplicado: `db/Estructura-PostgreSQL-da1-updated.sql` ≈ `frontend-da1/context/Estructura-PostgreSQL-da1-updated.sql`.
 
 ## Cómo se conectan

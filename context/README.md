@@ -39,7 +39,7 @@ Documentación contextual del backend del **Sistema de Subastas**. Su objetivo e
 
 - **`context/TPO_DAI_1C2026.md`** — **consigna oficial del TPO** (Desarrollo de Aplicaciones I, 1C2026). Requisitos del dominio: es la autoridad final sobre qué debe hacer el sistema.
 - `db/Estructura-PostgreSQL-da1-updated.sql` — esquema PostgreSQL real (snapshot).
-- `docs/Swagger_v4.YAML` — contrato OpenAPI 3.0 (origen de los modelos Pydantic).
+- `docs/Swagger_v5.YAML` — contrato OpenAPI 3.0 (origen de los modelos Pydantic).
 - `DOCUMENTATION.md` (raíz) — documentación técnica extendida previa, todavía válida y complementaria.
 - `app/schemas/schemas.py` — modelos Pydantic generados desde el Swagger.
 

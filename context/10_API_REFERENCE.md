@@ -1,6 +1,6 @@
 # 10 · API Reference
 
-Rutas reales montadas en `app/api/router.py`. Contrato formal completo: `docs/Swagger_v4.YAML`. Modelos: `app/schemas/schemas.py`.
+Rutas reales montadas en `app/api/router.py`. Contrato formal completo: `docs/Swagger_v5.YAML`. Modelos: `app/schemas/schemas.py`.
 
 - **Auth**: header `Authorization: Bearer <jwt>`. El JWT trae `usuarioId`, `categoria`, `admitido`, `jti`, `exp`.
 - **Base URL** local: `http://127.0.0.1:8000`. Prod (frontend): host tipo `backend-da1.onrender.com`.

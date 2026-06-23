@@ -55,7 +55,7 @@ PostgreSQL (Supabase)
 - **Admin = usuario id 12.** No hay tabla de roles para la API: el chequeo de admin es `user.get("usuarioId") != 12` (`app/api/admin.py:_require_admin`). Decisión simplificada; ver [08_PENDING_CONTEXT.md](08_PENDING_CONTEXT.md).
 - **SSE en memoria (no persistente).** `SubastaStreamer._listeners` es un dict en memoria del proceso. No sobrevive reinicios ni escala horizontalmente (multiworker rompería el broadcast). Adecuado para 1 worker.
 - **Storage vía Supabase.** `StorageService.upload_file` hace PUT directo al bucket `documentos`. `uploads.py` también ofrece presigned URLs sobre el bucket `imagenes`.
-- **Doble esquema de modelos.** `app/schemas/schemas.py` está autogenerado desde `Swagger_v4.YAML` (incluye nombres como `Estado1`, `Tipo2` por el codegen). Los repositorios mapean nombres de columnas snake_case del SQL a los campos camelCase de los schemas.
+- **Doble esquema de modelos.** `app/schemas/schemas.py` está autogenerado desde `Swagger_v5.YAML` (incluye nombres como `Estado1`, `Tipo2` por el codegen). Los repositorios mapean nombres de columnas snake_case del SQL a los campos camelCase de los schemas.
 
 ## Concurrencia / motor de pujas
 

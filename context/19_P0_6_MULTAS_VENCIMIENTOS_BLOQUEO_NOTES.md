@@ -68,7 +68,7 @@ Backend:
 - `app/repositories/subasta_repo.py`
 - `app/repositories/usuario_repo.py`
 - `app/schemas/schemas.py` no requirio cambios.
-- `docs/Swagger_v4.YAML`
+- `docs/Swagger_v5.YAML`
 - `tests/test_puja_idempotency.py`
 - `tests/test_subasta_multas.py`
 

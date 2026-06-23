@@ -90,7 +90,7 @@ Como `subastas` no persiste moneda y el flujo actual usa `USD`, P1.5 filtra gara
 - `app/repositories/subasta_repo.py`
 - `app/services/subasta_service.py`
 - `app/schemas/schemas.py`
-- `docs/Swagger_v4.YAML`
+- `docs/Swagger_v5.YAML`
 - `tests/test_garantia_limite.py`
 - `context/14_IMPLEMENTATION_BACKLOG_FINAL.md`
 - `context/21_P1_5_GARANTIA_LIMITE_NOTES.md`

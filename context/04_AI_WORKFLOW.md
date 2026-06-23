@@ -7,7 +7,7 @@ Cómo debe trabajar una IA (o dev nuevo) en este repo **antes de tocar código**
 1. [00_OVERVIEW.md](00_OVERVIEW.md) y [01_ARCHITECTURE.md](01_ARCHITECTURE.md) — modelo mental.
 2. [07_DOMAIN_NOTES.md](07_DOMAIN_NOTES.md) — reglas de negocio (no inventarlas).
 3. Para tareas de datos: [11_DATABASE.md](11_DATABASE.md) + `db/Estructura-PostgreSQL-da1-updated.sql`.
-4. Para tareas de API: [10_API_REFERENCE.md](10_API_REFERENCE.md) + `docs/Swagger_v4.YAML` + `app/schemas/schemas.py`.
+4. Para tareas de API: [10_API_REFERENCE.md](10_API_REFERENCE.md) + `docs/Swagger_v5.YAML` + `app/schemas/schemas.py`.
 5. El **archivo vecino** de la capa que vas a tocar (imitar su estilo).
 
 ## 2. Qué leer según el tipo de tarea

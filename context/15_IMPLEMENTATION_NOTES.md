@@ -158,5 +158,5 @@ También deben responder `403` para usuario común:
 
 ## Pendientes detectados
 
-- `docs/Swagger_v4.YAML` todavía conserva en la respuesta `201` de `/auth/registro/paso1` la frase vieja "Se envio email para el paso 2", aunque la descripción del endpoint ya dice que queda pendiente de verificación. No se tocó Swagger en esta etapa para mantener el alcance pedido.
+- `docs/Swagger_v5.YAML` todavía conserva en la respuesta `201` de `/auth/registro/paso1` la frase vieja "Se envio email para el paso 2", aunque la descripción del endpoint ya dice que queda pendiente de verificación. No se tocó Swagger en esta etapa para mantener el alcance pedido.
 - Confirmar cuál es el usuario admin real en cada entorno, porque el guard actual depende de `usuarioId == 1`.

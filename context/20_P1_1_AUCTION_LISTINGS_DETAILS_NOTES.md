@@ -63,7 +63,7 @@ PENDIENTE DE CONFIRMAR / P2.3: definir si la moneda real de cada subasta requier
 - `app/services/subasta_service.py`
 - `app/repositories/subasta_repo.py`
 - `app/schemas/schemas.py`
-- `docs/Swagger_v4.YAML`
+- `docs/Swagger_v5.YAML`
 - `tests/test_subasta_listados_detalles.py`
 - `context/14_IMPLEMENTATION_BACKLOG_FINAL.md`
 - `context/20_P1_1_AUCTION_LISTINGS_DETAILS_NOTES.md`

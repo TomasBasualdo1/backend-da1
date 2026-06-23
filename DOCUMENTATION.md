@@ -31,7 +31,7 @@ Sistema de subastas online con API REST construida en **FastAPI** (Python 3.12+)
 | Validación       | Pydantic 2.13.3 / Pydantic-Settings                         |
 | Storage          | Supabase Storage (presigned URLs via httpx)                 |
 | Error Tracking   | Sentry SDK 2.58.0                                           |
-| Documentación API| OpenAPI 3.0 (Swagger_v4.YAML)                               |
+| Documentación API| OpenAPI 3.0 (Swagger_v5.YAML)                               |
 
 ---
 
@@ -81,7 +81,7 @@ backend-da1/
 │
 ├── db/
 │   ├── Estructura-PostgreSQL-da1.sql  # Schema completo (14 tablas)
-│   └── Swagger_v4.YAML                # Especificación OpenAPI 3.0
+│   └── Swagger_v5.YAML                # Especificación OpenAPI 3.0
 │
 ├── context/                         # Documentación interna del proyecto
 │   ├── project-overview.md
