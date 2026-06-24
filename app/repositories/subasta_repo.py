@@ -410,7 +410,8 @@ class SubastaRepository:
                     CASE WHEN s.estado = 'carrada' THEN 'cerrada' ELSE s.estado END AS estado,
                     s.categoria,
                     s.ubicacion,
-                    s.moneda
+                    s.moneda,
+                    s.duracion_item_minutos AS "duracionItemMinutos"
                 FROM subastas s
                 WHERE s.identificador = %s
                 """,
