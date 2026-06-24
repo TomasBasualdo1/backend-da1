@@ -67,11 +67,10 @@ class SubastaService:
         subasta: SubastaCreate,
         usuario_id: int | None,
     ) -> dict:
-        min_fecha = date.today() + timedelta(days=10)
-        if subasta.fecha <= min_fecha:
+        if subasta.fecha < date.today():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La fecha de la subasta debe ser posterior a 10 dias desde hoy.",
+                detail="No se puede crear una subasta con fecha anterior a hoy.",
             )
 
         return SubastaRepository.create_subasta(db, subasta, usuario_id)
