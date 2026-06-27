@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from psycopg import Connection
@@ -67,13 +67,6 @@ class SubastaService:
         subasta: SubastaCreate,
         usuario_id: int | None,
     ) -> dict:
-        min_fecha = date.today() + timedelta(days=10)
-        if subasta.fecha <= min_fecha:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La fecha de la subasta debe ser posterior a 10 dias desde hoy.",
-            )
-
         return SubastaRepository.create_subasta(db, subasta, usuario_id)
 
     @staticmethod

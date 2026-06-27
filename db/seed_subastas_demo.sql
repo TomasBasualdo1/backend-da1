@@ -17,8 +17,10 @@ Notas:
     Este seed no inserta ni modifica paises.
   - La tabla subastas no tiene columna moneda en el esquema actual. ARS/USD se
     dejan representadas en medios_pago y pagos, sin inventar columnas.
-  - El CHECK de subastas.fecha exige fechas posteriores a CURRENT_DATE + 10 dias,
-    por eso todas las subastas demo usan fechas futuras, incluso la cerrada.
+  - Ya NO hay restriccion de antelacion en subastas.fecha (se removio el CHECK
+    de "> CURRENT_DATE + 10 dias" via migration_remove_subastas_fecha_check.sql).
+    Estas subastas demo igual usan fechas futuras; para una demo en vivo se puede
+    crear/seedear una subasta con fecha = hoy.
 
 Usuarios demo aprobados:
   Documento: DEMO-POSTOR-1 / Password: Demo1234!

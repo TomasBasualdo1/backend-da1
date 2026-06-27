@@ -74,7 +74,7 @@ sectores (nombresector, codigosector, responsablesector→empleados)
 
 ## Constraints de negocio embebidos en el esquema
 
-- `subastas.fecha` debe ser **> hoy + 10 días** (CHECK en BD y validado en `subasta_service.create_subasta`).
+- `subastas.fecha`: **sin restricción de antelación** (se eliminó la regla de "> hoy + 10 días"). Se removió la validación en `subasta_service.create_subasta` y el CHECK en BD vía `db/migration_remove_subastas_fecha_check.sql`. Ver [27_SUBASTAS_SIN_RESTRICCION_FECHA_NOTES.md](27_SUBASTAS_SIN_RESTRICCION_FECHA_NOTES.md).
 - `itemscatalogo.preciobase`/`comision` y `pujos.importe` deben ser **> 0.01**.
 - `personas_adicionales.email` es **UNIQUE**.
 - Enums implementados como **CHECK constraints** sobre `varchar` (no tipos ENUM nativos de Postgres).

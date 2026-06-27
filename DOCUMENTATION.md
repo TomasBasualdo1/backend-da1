@@ -300,7 +300,7 @@ articulos ── seguros ── productos (al aceptar tasación)
 | GET    | `/admin/articulos/aprobados-no-catalogados`   | Implementado | Listar artículos aprobados listos para catalogar |
 | GET    | `/admin/medios-pago/pendientes`               | Implementado | Listar medios de pago pendientes de verificación |
 | POST   | `/admin/medios-pago/{id}/verificar`           | Implementado | Validar/rechazar medio de pago |
-| POST   | `/admin/subastas`                             | Implementado | Crear subasta (fecha >10 días, categoría, moneda, subastador) |
+| POST   | `/admin/subastas`                             | Implementado | Crear subasta (fecha sin restricción de antelación, categoría, moneda, subastador) |
 | POST   | `/admin/subastas/{id}/catalogo/items`         | Implementado | Agregar item al catálogo con precio base y comisión |
 | GET    | `/admin/subastadores`                         | Implementado | Listar subastadores con nombre y matrícula |
 | POST   | `/admin/pagos/procesar-vencimientos`          | Implementado | Procesar pagos vencidos y generar multas/bloqueos |

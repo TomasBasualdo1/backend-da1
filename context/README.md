@@ -34,6 +34,7 @@ Documentación contextual del backend del **Sistema de Subastas**. Su objetivo e
 | 23 | [22_P1_6_TESTS_HARDENING_NOTES.md](22_P1_6_TESTS_HARDENING_NOTES.md) | Notas P1.6: estabilización de suite unittest. |
 | 24 | [23_P2_1_ROUTER_SQL_CLEANUP_NOTES.md](23_P2_1_ROUTER_SQL_CLEANUP_NOTES.md) | Notas P2.1: SQL inline de routers movido a service/repository. |
 | 25 | [18_DEPLOY_RELEASE_HARDENING.md](18_DEPLOY_RELEASE_HARDENING.md) | Checklist de Render/Supabase/Expo, env vars y smoke tests de entrega. |
+| 26 | [27_SUBASTAS_SIN_RESTRICCION_FECHA_NOTES.md](27_SUBASTAS_SIN_RESTRICCION_FECHA_NOTES.md) | Eliminación de la restricción de antelación (≥ hoy+10 días) al crear subastas. |
 
 ## Fuentes de verdad del repo
 
