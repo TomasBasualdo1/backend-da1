@@ -387,6 +387,9 @@ class ArticuloInput(BaseModel):
     )
     artista: Optional[str] = Field(None, description='Nombre del artista o disenador')
     fechaCreacion: Optional[date] = None
+    precioSugeridoUsuario: Optional[float] = Field(
+        None, description='Valor estimado por el usuario (solo referencia)'
+    )
     fotos: List[AnyUrl] = Field(..., min_items=6)
     documentacionOrigen: Optional[List[AnyUrl]] = Field(
         None, description='Documentacion que acredita el origen del articulo'
@@ -461,6 +464,7 @@ class SubastaDetallePublica(SubastaListadoPublico):
 class Articulo(BaseModel):
     id: Optional[int] = None
     descripcion: Optional[str] = None
+    precioSugeridoUsuario: Optional[float] = None
     precioBasePropuesto: Optional[float] = None
     comisionPropuesta: Optional[float] = None
     tasacionAceptada: Optional[bool] = None

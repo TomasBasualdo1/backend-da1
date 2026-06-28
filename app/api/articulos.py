@@ -80,6 +80,7 @@ async def _build_articulo_input(request: Request, user_id: int) -> ArticuloInput
         "historia": form.get("historia") or None,
         "artista": form.get("artista") or None,
         "fechaCreacion": form.get("fechaCreacion") or None,
+        "precioSugeridoUsuario": form.get("precioSugeridoUsuario") or None,
         "fotos": fotos,
         "documentacionOrigen": documentacion or None,
         "esPropietario": _parse_bool(form.get("esPropietario")),

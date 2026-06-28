@@ -27,7 +27,7 @@ class ArticuloRepository:
             return None
 
         articulo = dict(row)
-        for key in ("precioBasePropuesto", "comisionPropuesta"):
+        for key in ("precioSugeridoUsuario", "precioBasePropuesto", "comisionPropuesta"):
             if articulo.get(key) is not None:
                 articulo[key] = float(articulo[key])
 
@@ -114,9 +114,10 @@ class ArticuloRepository:
                         estado,
                         fecha_envio,
                         fotos,
-                        documentacion_origen
+                        documentacion_origen,
+                        precio_sugerido_usuario
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', CURRENT_TIMESTAMP, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', CURRENT_TIMESTAMP, %s, %s, %s)
                     RETURNING
                         identificador AS id,
                         duenio_id AS "duenioId",
@@ -126,6 +127,7 @@ class ArticuloRepository:
                         fecha_creacion AS "fechaCreacion",
                         estado,
                         motivo_rechazo AS "motivoRechazo",
+                        precio_sugerido_usuario AS "precioSugeridoUsuario",
                         precio_base_propuesto AS "precioBasePropuesto",
                         comision_propuesta AS "comisionPropuesta",
                         tasacion_aceptada AS "tasacionAceptada",
@@ -147,6 +149,7 @@ class ArticuloRepository:
                         ArticuloRepository._to_url_list(
                             payload.get("documentacionOrigen")
                         ),
+                        payload.get("precioSugeridoUsuario"),
                     ),
                 )
                 created = ArticuloRepository._row_to_articulo(cursor.fetchone())
@@ -171,6 +174,7 @@ class ArticuloRepository:
                     a.fecha_creacion AS "fechaCreacion",
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
+                    a.precio_sugerido_usuario AS "precioSugeridoUsuario",
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
@@ -211,6 +215,7 @@ class ArticuloRepository:
                     a.fecha_creacion AS "fechaCreacion",
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
+                    a.precio_sugerido_usuario AS "precioSugeridoUsuario",
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
@@ -426,6 +431,7 @@ class ArticuloRepository:
                     a.fecha_creacion AS "fechaCreacion",
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
+                    a.precio_sugerido_usuario AS "precioSugeridoUsuario",
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
