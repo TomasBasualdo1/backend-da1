@@ -348,6 +348,21 @@ class Pago(BaseModel):
     fechaLimitePago: Optional[datetime] = None
 
 
+class PagoPendienteItem(BaseModel):
+    itemId: Optional[int] = None
+    productoId: Optional[int] = None
+    descripcion: Optional[str] = None
+    importe: Optional[float] = None
+    comision: Optional[float] = None
+
+
+class PagoPendientePerfil(Pago):
+    subastaFecha: Optional[date] = None
+    subastaHora: Optional[time] = None
+    subastaUbicacion: Optional[str] = None
+    items: Optional[List[PagoPendienteItem]] = None
+
+
 class PagoRequest(BaseModel):
     medioPagoId: int
     modoEntrega: ModoEntrega

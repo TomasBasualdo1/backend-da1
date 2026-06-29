@@ -189,6 +189,11 @@ class UsuarioService:
         return UsuarioRepository.get_metrics(db, usuario_id)
 
     @staticmethod
+    def list_pagos_pendientes(db: Connection, usuario_id: int) -> list[dict]:
+        SubastaService.procesar_vencimientos(db, usuario_id)
+        return UsuarioRepository.get_pagos_pendientes(db, usuario_id)
+
+    @staticmethod
     def list_multas(db: Connection, usuario_id: int) -> list[dict]:
         SubastaService.procesar_vencimientos(db, usuario_id)
         return UsuarioRepository.get_multas(db, usuario_id)

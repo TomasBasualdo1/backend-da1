@@ -269,6 +269,25 @@ paths:
         "401":
           description: No autorizado.
 
+  /usuarios/me/pagos-pendientes:
+    get:
+      summary: Listar pagos pendientes de subastas ganadas
+      tags: [Perfil]
+      description: Devuelve pagos pendientes del usuario autenticado para subastas ya finalizadas, con los items ganados asociados.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pagos pendientes del usuario.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PagoPendientePerfil"
+        "401":
+          description: No autorizado.
+
   /usuarios/me/multas:
     get:
       summary: Listar multas activas
@@ -1556,6 +1575,40 @@ components:
         fechaLimitePago:
           type: string
           format: date-time
+
+    PagoPendienteItem:
+      type: object
+      properties:
+        itemId:
+          type: integer
+        productoId:
+          type: integer
+        descripcion:
+          type: string
+        importe:
+          type: number
+          format: float
+        comision:
+          type: number
+          format: float
+
+    PagoPendientePerfil:
+      allOf:
+        - $ref: "#/components/schemas/Pago"
+        - type: object
+          properties:
+            subastaFecha:
+              type: string
+              format: date
+            subastaHora:
+              type: string
+              format: time
+            subastaUbicacion:
+              type: string
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/PagoPendienteItem"
 
     PagoRequest:
       type: object

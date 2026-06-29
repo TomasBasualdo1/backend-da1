@@ -519,6 +519,82 @@ class UsuarioRepository:
             }
 
     @staticmethod
+    def get_pagos_pendientes(db: Connection, usuario_id: int) -> list[dict]:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.identificador AS id,
+                    p.subasta_id AS "subastaId",
+                    p.cliente_id AS "usuarioId",
+                    s.fecha AS "subastaFecha",
+                    s.hora AS "subastaHora",
+                    s.ubicacion AS "subastaUbicacion",
+                    p.total_pujado AS "totalPujado",
+                    p.comision,
+                    p.costo_envio AS "costoEnvio",
+                    p.total_final AS "totalFinal",
+                    p.moneda,
+                    p.modo_entrega AS "modoEntrega",
+                    p.estado,
+                    p.fecha_limite_pago AS "fechaLimitePago"
+                FROM pagos p
+                JOIN subastas s ON s.identificador = p.subasta_id
+                WHERE p.cliente_id = %s
+                  AND p.estado = 'pendiente'
+                  AND s.estado = 'cerrada'
+                ORDER BY p.fecha_limite_pago ASC, p.identificador DESC
+                """,
+                (usuario_id,),
+            )
+            pagos = cursor.fetchall()
+
+        if not pagos:
+            return []
+
+        subasta_ids = [pago["subastaId"] for pago in pagos]
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    r.subasta AS "subastaId",
+                    ic.identificador AS "itemId",
+                    r.producto AS "productoId",
+                    COALESCE(pr.descripcioncompleta, pr.descripcioncatalogo) AS descripcion,
+                    r.importe,
+                    r.comision
+                FROM registrodesubasta r
+                JOIN productos pr ON pr.identificador = r.producto
+                LEFT JOIN catalogos c ON c.subasta = r.subasta
+                LEFT JOIN itemscatalogo ic
+                    ON ic.catalogo = c.identificador
+                   AND ic.producto = r.producto
+                WHERE r.cliente = %s
+                  AND r.subasta = ANY(%s)
+                ORDER BY r.subasta ASC, COALESCE(ic.identificador, r.producto) ASC
+                """,
+                (usuario_id, subasta_ids),
+            )
+            ventas = cursor.fetchall()
+
+        items_by_subasta: dict[int, list[dict]] = {}
+        for venta in ventas:
+            item = dict(venta)
+            subasta_id = item.pop("subastaId")
+            for key in ("importe", "comision"):
+                if item[key] is not None:
+                    item[key] = float(item[key])
+            items_by_subasta.setdefault(subasta_id, []).append(item)
+
+        for pago in pagos:
+            for key in ("totalPujado", "comision", "costoEnvio", "totalFinal"):
+                if pago[key] is not None:
+                    pago[key] = float(pago[key])
+            pago["items"] = items_by_subasta.get(pago["subastaId"], [])
+
+        return pagos
+
+    @staticmethod
     def get_multas(db: Connection, usuario_id: int) -> list[dict]:
         with db.cursor() as cursor:
             cursor.execute(

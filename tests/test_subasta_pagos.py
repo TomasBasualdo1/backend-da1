@@ -106,7 +106,7 @@ class TestSubastaPagoApi(unittest.TestCase):
             return_value=77,
         ) as generar_pago, patch(
             "app.services.subasta_service.SubastaRepository.crear_notificacion",
-        ), patch(
+        ) as notificar, patch(
             "app.services.subasta_service.SubastaRepository.get_item_activo_detalle",
             return_value=next_item,
         ), patch(
@@ -126,6 +126,10 @@ class TestSubastaPagoApi(unittest.TestCase):
         cerrar_item.assert_called_once_with(db, 1, 101)
         registrar_venta.assert_called_once_with(db, 5, 30, 11, 20, 1200.0, 100.0)
         generar_pago.assert_called_once_with(db, 5, 20, 1200.0, 100.0, "USD")
+        notificar.assert_called_once()
+        self.assertEqual(notificar.call_args.args[1], 20)
+        self.assertEqual(notificar.call_args.args[2], "subasta")
+        self.assertIn("Ganaste", notificar.call_args.args[3])
         marcar_cerrada.assert_not_called()
         finalizar_sesiones.assert_not_called()
         db.commit.assert_called_once()

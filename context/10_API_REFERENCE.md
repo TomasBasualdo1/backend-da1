@@ -33,6 +33,7 @@ Rutas reales montadas en `app/api/router.py`. Contrato formal completo: `docs/Sw
 | PATCH | `/usuarios/me/medios-pago/{id}` | 🔒 | `MedioPagoUpdate` |
 | DELETE | `/usuarios/me/medios-pago/{id}` | 🔒 | 204 |
 | GET | `/usuarios/me/metricas` | 🔒 | → `UsuarioMetricas` |
+| GET | `/usuarios/me/pagos-pendientes` | 🔒 | → `list[PagoPendientePerfil]` (pagos pendientes de subastas finalizadas con ítems ganados) |
 | GET | `/usuarios/me/multas` | 🔒 | → `list[Multa]` |
 | POST | `/usuarios/me/multas/pagar` | 🔒 | `MultaPagoRequest` (multaId, medioPagoId) |
 

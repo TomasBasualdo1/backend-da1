@@ -11,6 +11,7 @@ from app.schemas.schemas import (
     UsuarioMetricas,
     Multa,
     MultaPagoRequest,
+    PagoPendientePerfil,
 )
 from app.services.usuario_service import UsuarioService
 
@@ -100,6 +101,17 @@ async def get_metrics(
     user: dict = Depends(get_current_user),
 ):
     return UsuarioMetricas(**UsuarioService.get_metrics(db, user["usuarioId"]))
+
+
+@router.get("/me/pagos-pendientes", response_model=list[PagoPendientePerfil])
+async def list_pending_auction_payments(
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    return [
+        PagoPendientePerfil(**pago)
+        for pago in UsuarioService.list_pagos_pendientes(db, user["usuarioId"])
+    ]
 
 
 @router.get("/me/multas", response_model=list[Multa])

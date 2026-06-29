@@ -11,11 +11,14 @@ from app.api.usuarios import (
     delete_profile_picture,
     get_metrics,
     get_profile,
+    list_pending_auction_payments,
     list_payment_methods,
     update_payment_method,
     update_profile,
 )
+from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import MedioPagoInput, MedioPagoUpdate
+from app.services.usuario_service import UsuarioService
 
 
 class FakeUpload:
@@ -321,6 +324,111 @@ class TestUsuariosApi(unittest.TestCase):
         self.assertEqual(response.montoTotalPagado, 700.0)
         self.assertEqual([cat.value for cat in response.categoriasParticipadas], ["comun", "oro"])
         self.assertEqual(response.ultimaParticipacion, last_seen)
+
+    def test_list_pending_auction_payments_endpoint_maps_items(self):
+        with patch(
+            "app.api.usuarios.UsuarioService.list_pagos_pendientes",
+            return_value=[
+                {
+                    "id": 77,
+                    "subastaId": 5,
+                    "usuarioId": 123,
+                    "subastaFecha": "2026-06-28",
+                    "subastaHora": "19:00:00",
+                    "subastaUbicacion": "Sala Central",
+                    "totalPujado": 1200.0,
+                    "comision": 120.0,
+                    "costoEnvio": 0.0,
+                    "totalFinal": 1320.0,
+                    "moneda": "USD",
+                    "modoEntrega": None,
+                    "estado": "pendiente",
+                    "fechaLimitePago": "2099-06-24T12:00:00Z",
+                    "items": [
+                        {
+                            "itemId": 9,
+                            "productoId": 11,
+                            "descripcion": "Reloj antiguo",
+                            "importe": 1200.0,
+                            "comision": 120.0,
+                        }
+                    ],
+                }
+            ],
+        ) as service:
+            response = asyncio.run(
+                list_pending_auction_payments(db=self.mock_db, user=self.mock_user)
+            )
+
+        self.assertEqual(len(response), 1)
+        self.assertEqual(response[0].id, 77)
+        self.assertEqual(response[0].subastaId, 5)
+        self.assertEqual(response[0].items[0].descripcion, "Reloj antiguo")
+        service.assert_called_once_with(self.mock_db, 123)
+
+    def test_service_pagos_pendientes_procesa_vencimientos_antes_de_listar(self):
+        with patch(
+            "app.services.usuario_service.SubastaService.procesar_vencimientos",
+            return_value={},
+        ) as vencimientos, patch(
+            "app.services.usuario_service.UsuarioRepository.get_pagos_pendientes",
+            return_value=[],
+        ) as repo:
+            result = UsuarioService.list_pagos_pendientes(self.mock_db, 123)
+
+        self.assertEqual(result, [])
+        vencimientos.assert_called_once_with(self.mock_db, 123)
+        repo.assert_called_once_with(self.mock_db, 123)
+
+    def test_repo_pagos_pendientes_filtra_usuario_pendiente_y_subasta_cerrada(self):
+        self.mock_cursor.fetchall.side_effect = [
+            [
+                {
+                    "id": 77,
+                    "subastaId": 5,
+                    "usuarioId": 123,
+                    "subastaFecha": "2026-06-28",
+                    "subastaHora": "19:00:00",
+                    "subastaUbicacion": "Sala Central",
+                    "totalPujado": 1200,
+                    "comision": 120,
+                    "costoEnvio": 0,
+                    "totalFinal": 1320,
+                    "moneda": "USD",
+                    "modoEntrega": None,
+                    "estado": "pendiente",
+                    "fechaLimitePago": "2099-06-24T12:00:00Z",
+                }
+            ],
+            [
+                {
+                    "subastaId": 5,
+                    "itemId": 9,
+                    "productoId": 11,
+                    "descripcion": "Reloj antiguo",
+                    "importe": 1200,
+                    "comision": 120,
+                }
+            ],
+        ]
+
+        result = UsuarioRepository.get_pagos_pendientes(self.mock_db, 123)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["totalPujado"], 1200.0)
+        self.assertEqual(result[0]["items"][0]["descripcion"], "Reloj antiguo")
+        self.assertEqual(result[0]["items"][0]["importe"], 1200.0)
+
+        pagos_sql = self.mock_cursor.execute.call_args_list[0].args[0]
+        self.assertIn("p.cliente_id = %s", pagos_sql)
+        self.assertIn("p.estado = 'pendiente'", pagos_sql)
+        self.assertIn("s.estado = 'cerrada'", pagos_sql)
+        self.assertEqual(self.mock_cursor.execute.call_args_list[0].args[1], (123,))
+
+        ventas_sql = self.mock_cursor.execute.call_args_list[1].args[0]
+        self.assertIn("FROM registrodesubasta r", ventas_sql)
+        self.assertIn("r.cliente = %s", ventas_sql)
+        self.assertEqual(self.mock_cursor.execute.call_args_list[1].args[1], (123, [5]))
 
 if __name__ == "__main__":
     unittest.main()
