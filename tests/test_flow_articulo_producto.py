@@ -237,6 +237,27 @@ class TestFlowArticuloProducto(unittest.TestCase):
         self.assertIn("estado = 'devuelto'", executed_sql)
         db.commit.assert_called_once()
 
+    def test_list_articulos_by_owner_resuelve_una_subasta_por_articulo(self):
+        db, cursor = make_db()
+        cursor.fetchall.return_value = [
+            articulo_row(
+                subastaId=20,
+                subastaFecha="2099-07-01",
+                subastaHora="15:00:00",
+                subastaEstado="abierta",
+            )
+        ]
+
+        result = ArticuloRepository.list_articulos_by_owner(db, 123)
+
+        self.assertEqual(1, len(result))
+        self.assertEqual(10, result[0]["id"])
+        self.assertEqual(20, result[0]["subastaId"])
+        executed_sql = "\n".join(call.args[0] for call in cursor.execute.call_args_list)
+        self.assertIn("LEFT JOIN LATERAL", executed_sql)
+        self.assertIn("LIMIT 1", executed_sql)
+        self.assertNotIn("LEFT JOIN productos p ON p.seguro", executed_sql)
+
 
 if __name__ == "__main__":
     unittest.main()

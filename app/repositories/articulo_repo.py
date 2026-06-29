@@ -185,16 +185,35 @@ class ArticuloRepository:
                     s.nropoliza AS "seguroPoliza",
                     s.compania AS "seguroCompania",
                     s.importe AS "seguroImporte",
-                    sub.identificador AS "subastaId",
-                    sub.fecha AS "subastaFecha",
-                    sub.hora AS "subastaHora",
-                    sub.estado AS "subastaEstado"
+                    sub_info."subastaId",
+                    sub_info."subastaFecha",
+                    sub_info."subastaHora",
+                    sub_info."subastaEstado"
                 FROM articulos a
                 LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
-                LEFT JOIN productos p ON p.seguro = a.seguro_poliza
-                LEFT JOIN itemscatalogo ic ON ic.producto = p.identificador
-                LEFT JOIN catalogos c ON ic.catalogo = c.identificador
-                LEFT JOIN subastas sub ON c.subasta = sub.identificador
+                LEFT JOIN LATERAL (
+                    SELECT
+                        sub.identificador AS "subastaId",
+                        sub.fecha AS "subastaFecha",
+                        sub.hora AS "subastaHora",
+                        sub.estado AS "subastaEstado"
+                    FROM productos p
+                    JOIN itemscatalogo ic ON ic.producto = p.identificador
+                    JOIN catalogos c ON ic.catalogo = c.identificador
+                    JOIN subastas sub ON c.subasta = sub.identificador
+                    WHERE p.seguro = a.seguro_poliza
+                    ORDER BY
+                        CASE sub.estado
+                            WHEN 'abierta' THEN 0
+                            WHEN 'proxima' THEN 1
+                            WHEN 'cerrada' THEN 2
+                            ELSE 3
+                        END,
+                        sub.fecha DESC,
+                        sub.hora DESC,
+                        sub.identificador DESC
+                    LIMIT 1
+                ) sub_info ON TRUE
                 WHERE a.identificador = %s
                 """,
                 (id,),
@@ -226,16 +245,35 @@ class ArticuloRepository:
                     s.nropoliza AS "seguroPoliza",
                     s.compania AS "seguroCompania",
                     s.importe AS "seguroImporte",
-                    sub.identificador AS "subastaId",
-                    sub.fecha AS "subastaFecha",
-                    sub.hora AS "subastaHora",
-                    sub.estado AS "subastaEstado"
+                    sub_info."subastaId",
+                    sub_info."subastaFecha",
+                    sub_info."subastaHora",
+                    sub_info."subastaEstado"
                 FROM articulos a
                 LEFT JOIN seguros s ON a.seguro_poliza = s.nropoliza
-                LEFT JOIN productos p ON p.seguro = a.seguro_poliza
-                LEFT JOIN itemscatalogo ic ON ic.producto = p.identificador
-                LEFT JOIN catalogos c ON ic.catalogo = c.identificador
-                LEFT JOIN subastas sub ON c.subasta = sub.identificador
+                LEFT JOIN LATERAL (
+                    SELECT
+                        sub.identificador AS "subastaId",
+                        sub.fecha AS "subastaFecha",
+                        sub.hora AS "subastaHora",
+                        sub.estado AS "subastaEstado"
+                    FROM productos p
+                    JOIN itemscatalogo ic ON ic.producto = p.identificador
+                    JOIN catalogos c ON ic.catalogo = c.identificador
+                    JOIN subastas sub ON c.subasta = sub.identificador
+                    WHERE p.seguro = a.seguro_poliza
+                    ORDER BY
+                        CASE sub.estado
+                            WHEN 'abierta' THEN 0
+                            WHEN 'proxima' THEN 1
+                            WHEN 'cerrada' THEN 2
+                            ELSE 3
+                        END,
+                        sub.fecha DESC,
+                        sub.hora DESC,
+                        sub.identificador DESC
+                    LIMIT 1
+                ) sub_info ON TRUE
                 WHERE a.duenio_id = %s
                 ORDER BY a.fecha_envio DESC, a.identificador DESC
                 """,
