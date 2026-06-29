@@ -500,7 +500,7 @@ class SubastaService:
         if SubastaRepository.check_otra_sesion_activa(db, subasta_id, usuario_id):
             raise HTTPException(
                 status_code=409,
-                detail="Ya te encuentras conectado a otra subasta",
+                detail="Ya te encuentras conectado a otra subasta en vivo",
             )
 
         SubastaRepository.join_subasta(db, subasta_id, usuario_id)

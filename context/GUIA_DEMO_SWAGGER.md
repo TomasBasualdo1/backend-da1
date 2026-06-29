@@ -140,7 +140,7 @@ Orden pensado para mostrar todo sin trabarse. Para cada paso: endpoint, método,
 
 ### Paso 5 — Unirse a una subasta
 - **POST `/subastas/{id}/join`** (ej. `/subastas/900001/join`) · auth · **sin body**.
-- Validaciones (en orden, [subasta_service.py](app/services/subasta_service.py)): subasta existe y `abierta` → categoría suficiente → no bloqueado/sin multas → **al menos un medio validado** → no estar ya conectado a otra subasta (si no, **409**).
+- Validaciones (en orden, [subasta_service.py](app/services/subasta_service.py)): subasta existe y `abierta` → categoría suficiente → no bloqueado/sin multas → **al menos un medio validado** → no estar ya conectado a otra subasta en vivo (si no, **409**).
 - Esperado: 201. Guardar `<SUBASTA_ID>` = `900001`.
 - Tip: usá una subasta cuya categoría matchee al usuario (POSTOR-1 → 900001).
 
@@ -694,7 +694,7 @@ psql "$DATABASE_URL" -f db/seed_subastas_demo.sql
 | **403 "Usuario bloqueado o con multas"** | Multa activa o bloqueo | Pagar multa (`/usuarios/me/multas/pagar`) |
 | **400 "Debes tener... medio de pago validado"** | Sin medio `validado` | Usar usuario del seed (ya tienen) o que admin valide el medio |
 | **404 ID inexistente** | `subastaId`/`itemId`/etc. mal | Releer el ID de la respuesta anterior (no inventarlo) |
-| **409 "Ya te encuentras conectado a otra subasta"** | Sesión activa en otra subasta | Salir con `DELETE /subastas/{id}/join` de la otra |
+| **409 "Ya te encuentras conectado a otra subasta en vivo"** | Sesión activa en otra subasta en vivo | Salir con `DELETE /subastas/{id}/join` de la otra |
 | **400 puja fuera de rango / menor a mejor oferta** | Importe < `limiteMinimo` o > `limiteMaximo` | Usar el rango que devolvió la última respuesta/detalle |
 | **400 "Este ítem ya fue subastado"** | Ítem cerrado | Elegir un ítem con `subastado: "no"` |
 | **400 "La subasta no está abierta"** / "ya está cerrada" | Subasta cerrada | Usar una abierta (900001–900005) |

@@ -691,7 +691,18 @@ class SubastaRepository:
     def check_otra_sesion_activa(db: Connection, subasta_id: int, cliente_id: int) -> bool:
         with db.cursor() as cursor:
             cursor.execute(
-                "SELECT 1 FROM sesiones_subasta WHERE cliente_id = %s AND estado = 'activa' AND subasta_id != %s",
+                """
+                SELECT 1
+                FROM sesiones_subasta ss
+                JOIN subastas s ON s.identificador = ss.subasta_id
+                WHERE ss.cliente_id = %s
+                  AND ss.estado = 'activa'
+                  AND ss.subasta_id != %s
+                  AND s.estado = 'abierta'
+                  AND s.fecha = CURRENT_DATE
+                  AND s.hora <= CURRENT_TIME
+                LIMIT 1
+                """,
                 (cliente_id, subasta_id),
             )
             return bool(cursor.fetchone())

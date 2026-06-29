@@ -28,7 +28,7 @@ Vista desde el **backend**. (La contraparte está en `frontend-da1/context/11_IN
 
 - **Registro paso 1** y **update perfil** y **publicar artículo** van como `multipart/form-data` (el front arma `FormData` con `uri/name/type` para RN). Los nombres de campo deben coincidir exactamente (`fotoFrente`, `fotoDorso`, `fotos`, `documentacionOrigen`).
 - El front **normaliza** respuestas tolerando camelCase y snake_case (`normalizeUsuario`, `normalizeArticulo`, etc.), porque el backend no es 100% consistente. Si cambiás nombres de campos en responses, revisá esos normalizers.
-- El front manejal códigos: 401 (sesión), 403 (acceso/categoría), 409 (ya conectado a otra subasta) — mantené esos códigos.
+- El front manejal códigos: 401 (sesión), 403 (acceso/categoría), 409 (ya conectado a otra subasta en vivo) — mantené esos códigos.
 
 ## Desalineaciones conocidas (importante)
 

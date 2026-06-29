@@ -48,7 +48,7 @@ Valida en orden (`subasta_service.join_subasta`):
 2. Categoría suficiente (peso usuario ≥ peso subasta).
 3. Usuario no bloqueado / sin multas pendientes (`puede_participar`).
 4. Tiene al menos **un medio de pago validado**.
-5. No está conectado a otra subasta (sesión activa) → si no, **409**.
+5. No está conectado a otra subasta **en vivo** (sesión activa sobre subasta `abierta` de hoy con hora ya iniciada) → si no, **409**. Las sesiones activas arrastradas de subastas futuras/no-vivas no bloquean la entrada a una sala live.
 
 ### Motor de pujas (`subasta_service.procesar_puja`) — REGLA CENTRAL
 - Requiere estar unido (asistente) → si no, **403**.

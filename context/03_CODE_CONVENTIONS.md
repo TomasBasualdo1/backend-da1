@@ -58,7 +58,7 @@ Basadas en el código real del repo. Para escribir código nuevo, **imitá el ar
 | 401 | Token inválido/expirado/revocado |
 | 403 | Sin permiso (categoría insuficiente, no admin, bloqueado) |
 | 404 | Recurso inexistente |
-| 409 | Conflicto (ya conectado a otra subasta) |
+| 409 | Conflicto (ya conectado a otra subasta en vivo) |
 
 ## Estilo Python
 
