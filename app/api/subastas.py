@@ -248,10 +248,18 @@ async def close_auction(
     require_admin(user)
     resultado = SubastaService.cerrar_subasta(db, id)
 
-    # Notificar via SSE que la subasta se cerró
-    await SubastaStreamer.broadcast(id, "cierre", {
-        "message": "La subasta ha finalizado",
-        "itemsCerrados": resultado["itemsCerrados"],
-    })
+    if resultado.get("itemCerrado"):
+        await SubastaStreamer.broadcast(id, "item", {
+            "itemCerrado": resultado.get("itemCerrado"),
+            "itemActivo": resultado.get("itemActivo"),
+            "itemsPendientes": resultado.get("itemsPendientes", 0),
+            "subastaCerrada": resultado.get("subastaCerrada", False),
+        })
+
+    if resultado.get("subastaCerrada"):
+        await SubastaStreamer.broadcast(id, "cierre", {
+            "message": "La subasta ha finalizado",
+            "itemsCerrados": resultado["itemsCerrados"],
+        })
 
     return resultado

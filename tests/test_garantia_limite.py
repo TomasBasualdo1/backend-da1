@@ -32,7 +32,7 @@ def pago_pendiente(**overrides):
         "moneda": "USD",
         "modoEntrega": None,
         "estado": "pendiente",
-        "fechaLimitePago": "2026-06-24T12:00:00Z",
+        "fechaLimitePago": "2099-06-24T12:00:00Z",
     }
     data.update(overrides)
     return data
@@ -98,6 +98,12 @@ def puja_context(
                     "preciobase": precio_base,
                     "subastado": "no",
                 },
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.subasta_service.SubastaRepository.get_item_activo_id",
+                return_value=9,
             )
         )
         stack.enter_context(

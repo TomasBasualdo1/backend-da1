@@ -111,6 +111,9 @@ class TestPujaIdempotencyService(unittest.TestCase):
             "app.services.subasta_service.SubastaRepository.get_item_for_update",
             return_value={"id": 9, "preciobase": 1000.0, "subastado": "no"},
         ), patch(
+            "app.services.subasta_service.SubastaRepository.get_item_activo_id",
+            return_value=9,
+        ), patch(
             "app.services.subasta_service.SubastaRepository.get_mejor_oferta",
             return_value=0.0,
         ), patch(

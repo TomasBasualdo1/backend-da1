@@ -726,8 +726,11 @@ paths:
       summary: Cerrar subasta
       tags: [Administracion]
       description: |
-        Finaliza la subasta y determina ganadores. Si no hay pujas,
-        la empresa compra al precio base.
+        Cierra/adjudica el item activo de la subasta. Si quedan items pendientes,
+        la subasta sigue abierta y se emite un evento SSE `item` con el siguiente
+        item activo. Cuando no quedan items pendientes, finaliza la subasta y se
+        emite `cierre`. Si un item no tiene pujas, la empresa lo adquiere al
+        precio base segun la regla vigente.
       parameters:
         - name: id
           in: path
@@ -1595,6 +1598,51 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Puja"
             - $ref: "#/components/schemas/ItemCatalogo"
+            - $ref: "#/components/schemas/ItemStreamData"
+            - $ref: "#/components/schemas/CierreStreamData"
+
+    ItemCerradoStreamData:
+      type: object
+      properties:
+        id:
+          type: integer
+        productoId:
+          type: integer
+        precioBase:
+          type: number
+          format: float
+        pujaId:
+          type: integer
+          nullable: true
+        clienteGanador:
+          type: integer
+          nullable: true
+        importe:
+          type: number
+          format: float
+          nullable: true
+
+    ItemStreamData:
+      type: object
+      properties:
+        itemCerrado:
+          $ref: "#/components/schemas/ItemCerradoStreamData"
+        itemActivo:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ItemCatalogo"
+        itemsPendientes:
+          type: integer
+        subastaCerrada:
+          type: boolean
+
+    CierreStreamData:
+      type: object
+      properties:
+        message:
+          type: string
+        itemsCerrados:
+          type: integer
 
     ArticuloInput:
       type: object

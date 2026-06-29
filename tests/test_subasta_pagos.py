@@ -21,7 +21,7 @@ def pago_pendiente(**overrides):
         "moneda": "USD",
         "modoEntrega": None,
         "estado": "pendiente",
-        "fechaLimitePago": "2026-06-24T12:00:00Z",
+        "fechaLimitePago": "2099-06-24T12:00:00Z",
     }
     data.update(overrides)
     return data
@@ -68,47 +68,35 @@ class TestSubastaPagoApi(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 403)
         cerrar.assert_not_called()
 
-    def test_admin_puede_cerrar_y_se_generan_pagos_esperados(self):
+    def test_admin_puede_cerrar_item_activo_y_generar_pago(self):
         db = MagicMock()
-        items = [
-            {
-                "item_id": 1,
-                "preciobase": 1000.0,
-                "comision": 100.0,
-                "producto": 11,
-                "duenio": 30,
-                "puja_id": 101,
-                "puja_importe": 1200.0,
-                "cliente_ganador": 20,
-            },
-            {
-                "item_id": 2,
-                "preciobase": 800.0,
-                "comision": 80.0,
-                "producto": 12,
-                "duenio": 31,
-                "puja_id": 102,
-                "puja_importe": 900.0,
-                "cliente_ganador": 20,
-            },
-            {
-                "item_id": 3,
-                "preciobase": 500.0,
-                "comision": 50.0,
-                "producto": 13,
-                "duenio": 32,
-                "puja_id": None,
-                "puja_importe": None,
-                "cliente_ganador": None,
-            },
-        ]
+        item = {
+            "item_id": 1,
+            "preciobase": 1000.0,
+            "comision": 100.0,
+            "producto": 11,
+            "duenio": 30,
+            "puja_id": 101,
+            "puja_importe": 1200.0,
+            "cliente_ganador": 20,
+        }
+        next_item = {
+            "id": 2,
+            "descripcion": "Proximo item",
+            "precioBase": 800.0,
+            "mejorOfertaActual": None,
+            "limiteMinimo": 800.0,
+            "limiteMaximo": 960.0,
+            "subastado": "no",
+            "fotos": [],
+        }
 
         with patch(
             "app.services.subasta_service.SubastaRepository.get_subasta_basica",
             return_value={"identificador": 5, "estado": "abierta", "categoria": "comun", "moneda": "USD"},
         ), patch(
-            "app.services.subasta_service.SubastaRepository.obtener_items_con_pujas",
-            return_value=items,
+            "app.services.subasta_service.SubastaRepository.obtener_item_activo_con_puja",
+            return_value=item,
         ), patch(
             "app.services.subasta_service.SubastaRepository.cerrar_item",
         ) as cerrar_item, patch(
@@ -119,19 +107,27 @@ class TestSubastaPagoApi(unittest.TestCase):
         ) as generar_pago, patch(
             "app.services.subasta_service.SubastaRepository.crear_notificacion",
         ), patch(
+            "app.services.subasta_service.SubastaRepository.get_item_activo_detalle",
+            return_value=next_item,
+        ), patch(
+            "app.services.subasta_service.SubastaRepository.contar_items_pendientes",
+            return_value=1,
+        ), patch(
             "app.services.subasta_service.SubastaRepository.marcar_subasta_cerrada",
         ) as marcar_cerrada, patch(
             "app.services.subasta_service.SubastaRepository.finalizar_sesiones",
         ) as finalizar_sesiones:
             result = SubastaService.cerrar_subasta(db, 5)
 
-        self.assertEqual(result["itemsCerrados"], 3)
+        self.assertEqual(result["itemsCerrados"], 1)
         self.assertEqual(result["pagosGenerados"], 1)
-        self.assertEqual(cerrar_item.call_count, 3)
-        self.assertEqual(registrar_venta.call_count, 2)
-        generar_pago.assert_called_once_with(db, 5, 20, 2100.0, 180.0, "USD")
-        marcar_cerrada.assert_called_once_with(db, 5)
-        finalizar_sesiones.assert_called_once_with(db, 5)
+        self.assertFalse(result["subastaCerrada"])
+        self.assertEqual(result["itemActivo"]["id"], 2)
+        cerrar_item.assert_called_once_with(db, 1, 101)
+        registrar_venta.assert_called_once_with(db, 5, 30, 11, 20, 1200.0, 100.0)
+        generar_pago.assert_called_once_with(db, 5, 20, 1200.0, 100.0, "USD")
+        marcar_cerrada.assert_not_called()
+        finalizar_sesiones.assert_not_called()
         db.commit.assert_called_once()
 
 

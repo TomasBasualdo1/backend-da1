@@ -374,10 +374,31 @@ class TipoStreamEvent(Enum):
     cierre = 'cierre'
 
 
+class ItemCerradoStreamData(BaseModel):
+    id: Optional[int] = None
+    productoId: Optional[int] = None
+    precioBase: Optional[float] = None
+    pujaId: Optional[int] = None
+    clienteGanador: Optional[int] = None
+    importe: Optional[float] = None
+
+
+class ItemStreamData(BaseModel):
+    itemCerrado: Optional[ItemCerradoStreamData] = None
+    itemActivo: Optional[ItemCatalogo] = None
+    itemsPendientes: Optional[int] = None
+    subastaCerrada: Optional[bool] = None
+
+
+class CierreStreamData(BaseModel):
+    message: Optional[str] = None
+    itemsCerrados: Optional[int] = None
+
+
 class StreamEvent(BaseModel):
     type: Optional[TipoStreamEvent] = None
     fechaHora: Optional[datetime] = None
-    data: Optional[Union[Puja, ItemCatalogo]] = None
+    data: Optional[Union[Puja, ItemCatalogo, ItemStreamData, CierreStreamData]] = None
 
 
 class ArticuloInput(BaseModel):

@@ -380,6 +380,7 @@ class SubastaRepository:
                 JOIN catalogos c ON ic.catalogo = c.identificador
                 JOIN productos p ON ic.producto = p.identificador
                 WHERE c.subasta = %s
+                ORDER BY ic.identificador
                 """,
                 (subasta_id,),
             )
@@ -435,6 +436,7 @@ class SubastaRepository:
                 JOIN catalogos c ON ic.catalogo = c.identificador
                 JOIN productos p ON ic.producto = p.identificador
                 WHERE c.subasta = %s
+                ORDER BY ic.identificador
                 """,
                 (subasta_id,),
             )
@@ -490,6 +492,75 @@ class SubastaRepository:
                 (item_id, subasta_id),
             )
             return cursor.fetchone()
+
+    @staticmethod
+    def get_item_activo_id(db: Connection, subasta_id: int) -> int | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ic.identificador AS id
+                FROM itemscatalogo ic
+                JOIN catalogos c ON ic.catalogo = c.identificador
+                WHERE c.subasta = %s
+                  AND ic.subastado = 'no'
+                ORDER BY ic.identificador
+                LIMIT 1
+                """,
+                (subasta_id,),
+            )
+            row = cursor.fetchone()
+            return row["id"] if row else None
+
+    @staticmethod
+    def get_item_activo_detalle(db: Connection, subasta_id: int) -> dict | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    ic.identificador AS id,
+                    p.descripcioncompleta AS descripcion,
+                    ic.preciobase AS "precioBase",
+                    (SELECT MAX(importe) FROM pujos WHERE item = ic.identificador) AS "mejorOfertaActual",
+                    ic.subastado,
+                    (
+                        SELECT COALESCE(jsonb_agg(f.foto_url), '[]'::jsonb)
+                        FROM fotos_adicionales f
+                        WHERE f.producto = ic.producto
+                    ) AS fotos
+                FROM itemscatalogo ic
+                JOIN catalogos c ON ic.catalogo = c.identificador
+                JOIN productos p ON ic.producto = p.identificador
+                WHERE c.subasta = %s
+                  AND ic.subastado = 'no'
+                ORDER BY ic.identificador
+                LIMIT 1
+                """,
+                (subasta_id,),
+            )
+            item = cursor.fetchone()
+
+        if not item:
+            return None
+
+        if item["precioBase"] is not None:
+            item["precioBase"] = float(item["precioBase"])
+        if item["mejorOfertaActual"] is not None:
+            item["mejorOfertaActual"] = float(item["mejorOfertaActual"])
+
+        precio_base = item["precioBase"] or 0.0
+        mejor_oferta = item["mejorOfertaActual"] or 0.0
+        if mejor_oferta == 0.0:
+            item["limiteMinimo"] = precio_base
+            item["limiteMaximo"] = precio_base + (precio_base * 0.20)
+        else:
+            item["limiteMinimo"] = mejor_oferta + (precio_base * 0.01)
+            item["limiteMaximo"] = mejor_oferta + (precio_base * 0.20)
+
+        item["subastado"] = SubastaRepository._normalizar_subastado(
+            item.get("subastado")
+        )
+        item["fotos"] = SubastaRepository._normalizar_fotos(item.get("fotos"))
+        return item
 
     @staticmethod
     def get_mejor_oferta(db: Connection, item_id: int) -> float:
@@ -702,16 +773,68 @@ class SubastaRepository:
                 ) puja ON true
                 LEFT JOIN asistentes a ON puja.asistente = a.identificador
                 WHERE c.subasta = %s AND ic.subastado = 'no'
+                ORDER BY ic.identificador
                 """,
                 (subasta_id,),
             )
             return cursor.fetchall()
 
     @staticmethod
+    def obtener_item_activo_con_puja(db: Connection, subasta_id: int) -> dict | None:
+        """Devuelve el primer item pendiente con su mejor puja y datos del producto."""
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    ic.identificador AS item_id,
+                    ic.preciobase,
+                    ic.comision,
+                    ic.producto,
+                    p.duenio,
+                    puja.identificador AS puja_id,
+                    puja.importe AS puja_importe,
+                    a.cliente AS cliente_ganador
+                FROM itemscatalogo ic
+                JOIN catalogos c ON ic.catalogo = c.identificador
+                JOIN productos p ON ic.producto = p.identificador
+                LEFT JOIN LATERAL (
+                    SELECT pu.identificador, pu.importe, pu.asistente
+                    FROM pujos pu
+                    WHERE pu.item = ic.identificador
+                    ORDER BY pu.importe DESC, pu.identificador DESC
+                    LIMIT 1
+                ) puja ON true
+                LEFT JOIN asistentes a ON puja.asistente = a.identificador
+                WHERE c.subasta = %s AND ic.subastado = 'no'
+                ORDER BY ic.identificador
+                LIMIT 1
+                FOR UPDATE OF ic
+                """,
+                (subasta_id,),
+            )
+            return cursor.fetchone()
+
+    @staticmethod
+    def contar_items_pendientes(db: Connection, subasta_id: int) -> int:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM itemscatalogo ic
+                JOIN catalogos c ON ic.catalogo = c.identificador
+                WHERE c.subasta = %s AND ic.subastado = 'no'
+                """,
+                (subasta_id,),
+            )
+            row = cursor.fetchone()
+            return int(row["total"] or 0) if row else 0
+
+    @staticmethod
     def cerrar_item(db: Connection, item_id: int, puja_id: int | None) -> None:
         with db.cursor() as cursor:
             cursor.execute("UPDATE itemscatalogo SET subastado = 'si' WHERE identificador = %s", (item_id,))
             if puja_id:
+                cursor.execute("UPDATE pujos SET ganador = 'no' WHERE item = %s", (item_id,))
                 cursor.execute("UPDATE pujos SET ganador = 'si' WHERE identificador = %s", (puja_id,))
 
     @staticmethod
@@ -731,6 +854,10 @@ class SubastaRepository:
             cursor.execute(
                 """
                 SELECT identificador
+                    , estado
+                    , total_pujado
+                    , comision
+                    , costo_envio
                 FROM pagos
                 WHERE subasta_id = %s AND cliente_id = %s
                 ORDER BY identificador DESC
@@ -740,6 +867,32 @@ class SubastaRepository:
             )
             existing = cursor.fetchone()
             if existing:
+                if existing.get("estado") == "pendiente":
+                    total_pujado_actual = float(existing.get("total_pujado") or 0.0)
+                    comision_actual = float(existing.get("comision") or 0.0)
+                    costo_envio_actual = float(existing.get("costo_envio") or 0.0)
+                    nuevo_total_pujado = total_pujado_actual + total_pujado
+                    nueva_comision = comision_actual + comision
+                    nuevo_total_final = (
+                        nuevo_total_pujado + nueva_comision + costo_envio_actual
+                    )
+                    cursor.execute(
+                        """
+                        UPDATE pagos
+                        SET total_pujado = %s,
+                            comision = %s,
+                            total_final = %s,
+                            moneda = %s
+                        WHERE identificador = %s
+                        """,
+                        (
+                            nuevo_total_pujado,
+                            nueva_comision,
+                            nuevo_total_final,
+                            moneda,
+                            existing["identificador"],
+                        ),
+                    )
                 return existing["identificador"]
 
             total_final = total_pujado + comision

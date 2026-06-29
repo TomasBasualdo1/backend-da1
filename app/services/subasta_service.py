@@ -1,4 +1,3 @@
-from collections import defaultdict
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -360,6 +359,21 @@ class SubastaService:
                     status_code=400, detail="Este ítem ya fue subastado"
                 )
 
+            item_activo_id = SubastaRepository.get_item_activo_id(db, subasta_id)
+            if item_activo_id is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="La subasta no tiene ítems pendientes para pujar",
+                )
+            if item_activo_id != item_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Solo se puede pujar por el ítem activo de la subasta "
+                        f"(item #{item_activo_id})"
+                    ),
+                )
+
             precio_base = float(item["preciobase"])
             mejor_oferta_actual = SubastaRepository.get_mejor_oferta(db, item_id)
 
@@ -550,70 +564,99 @@ class SubastaService:
             if subasta["estado"] == "cerrada":
                 raise HTTPException(status_code=400, detail="La subasta ya está cerrada")
 
-            items = SubastaRepository.obtener_items_con_pujas(db, subasta_id)
-            pagos_por_cliente: dict[int, dict] = defaultdict(
-                lambda: {"total_pujado": 0.0, "comision": 0.0}
-            )
+            item = SubastaRepository.obtener_item_activo_con_puja(db, subasta_id)
+            if not item:
+                SubastaRepository.marcar_subasta_cerrada(db, subasta_id)
+                SubastaRepository.finalizar_sesiones(db, subasta_id)
+                db.commit()
+                return {
+                    "message": "Subasta cerrada exitosamente",
+                    "itemsCerrados": 0,
+                    "pagosGenerados": 0,
+                    "itemCerrado": None,
+                    "itemActivo": None,
+                    "itemsPendientes": 0,
+                    "subastaCerrada": True,
+                }
 
-            for item in items:
-                item_id = item["item_id"]
-                precio_base = float(item["preciobase"])
-                comision_item = float(item["comision"])
-                producto_id = item["producto"]
-                duenio_id = item["duenio"]
+            item_id = item["item_id"]
+            precio_base = float(item["preciobase"])
+            comision_item = float(item["comision"])
+            producto_id = item["producto"]
+            duenio_id = item["duenio"]
+            pagos_generados = 0
+            item_cerrado = {
+                "id": item_id,
+                "productoId": producto_id,
+                "precioBase": precio_base,
+                "pujaId": item["puja_id"],
+                "clienteGanador": item["cliente_ganador"],
+                "importe": None,
+            }
 
-                if item["puja_id"]:
-                    cliente_ganador = item["cliente_ganador"]
-                    importe_final = float(item["puja_importe"])
+            if item["puja_id"]:
+                cliente_ganador = item["cliente_ganador"]
+                importe_final = float(item["puja_importe"])
+                item_cerrado["importe"] = importe_final
 
-                    SubastaRepository.cerrar_item(db, item_id, item["puja_id"])
-                    SubastaRepository.registrar_venta(
-                        db,
-                        subasta_id,
-                        duenio_id,
-                        producto_id,
-                        cliente_ganador,
-                        importe_final,
-                        comision_item,
-                    )
-
-                    pagos_por_cliente[cliente_ganador]["total_pujado"] += importe_final
-                    pagos_por_cliente[cliente_ganador]["comision"] += comision_item
-
-                    SubastaRepository.crear_notificacion(
-                        db,
-                        cliente_ganador,
-                        "subasta",
-                        f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
-                        f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
-                    )
-                else:
-                    SubastaRepository.cerrar_item(db, item_id, None)
-                    SubastaRepository.crear_notificacion(
-                        db,
-                        duenio_id,
-                        "subasta",
-                        f"Tu articulo #{producto_id} fue adquirido por la empresa al precio base (${precio_base:.2f}).",
-                    )
-
-            for cliente_id, totales in pagos_por_cliente.items():
+                SubastaRepository.cerrar_item(db, item_id, item["puja_id"])
+                SubastaRepository.registrar_venta(
+                    db,
+                    subasta_id,
+                    duenio_id,
+                    producto_id,
+                    cliente_ganador,
+                    importe_final,
+                    comision_item,
+                )
                 SubastaRepository.generar_pago(
                     db,
                     subasta_id,
-                    cliente_id,
-                    totales["total_pujado"],
-                    totales["comision"],
+                    cliente_ganador,
+                    importe_final,
+                    comision_item,
                     subasta["moneda"],
                 )
+                pagos_generados = 1
 
-            SubastaRepository.marcar_subasta_cerrada(db, subasta_id)
-            SubastaRepository.finalizar_sesiones(db, subasta_id)
+                SubastaRepository.crear_notificacion(
+                    db,
+                    cliente_ganador,
+                    "subasta",
+                    f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
+                    f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
+                )
+            else:
+                SubastaRepository.cerrar_item(db, item_id, None)
+                SubastaRepository.crear_notificacion(
+                    db,
+                    duenio_id,
+                    "subasta",
+                    f"Tu articulo #{producto_id} fue adquirido por la empresa al precio base (${precio_base:.2f}).",
+                )
+
+            item_activo = SubastaRepository.get_item_activo_detalle(db, subasta_id)
+            items_pendientes = SubastaRepository.contar_items_pendientes(db, subasta_id)
+            subasta_cerrada = item_activo is None
+
+            if subasta_cerrada:
+                SubastaRepository.marcar_subasta_cerrada(db, subasta_id)
+                SubastaRepository.finalizar_sesiones(db, subasta_id)
+
             db.commit()
 
             return {
-                "message": "Subasta cerrada exitosamente",
-                "itemsCerrados": len(items),
-                "pagosGenerados": len(pagos_por_cliente),
+                "message": (
+                    "Subasta cerrada exitosamente"
+                    if subasta_cerrada
+                    else "Ítem cerrado exitosamente"
+                ),
+                "itemsCerrados": 1,
+                "pagosGenerados": pagos_generados,
+                "itemCerrado": item_cerrado,
+                "itemActivo": item_activo,
+                "itemsPendientes": items_pendientes,
+                "subastaCerrada": subasta_cerrada,
             }
         except HTTPException:
             db.rollback()
