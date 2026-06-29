@@ -214,40 +214,49 @@ class SubastaRepository:
                             detail="El artículo debe estar aprobado y con tasación aceptada.",
                         )
 
-                    revisor_id = SubastaRepository._resolve_catalog_responsable(
-                        db, usuario_id
-                    )
+                    # Verificamos si ya existe un producto creado para la póliza de este artículo
                     cursor.execute(
-                        """
-                        INSERT INTO productos (
-                            fecha,
-                            disponible,
-                            descripcioncatalogo,
-                            descripcioncompleta,
-                            revisor,
-                            duenio,
-                            seguro
-                        )
-                        VALUES (CURRENT_DATE, 'si', %s, %s, %s, %s, %s)
-                        RETURNING identificador
-                        """,
-                        (
-                            articulo["descripcion"],
-                            articulo["descripcion"],
-                            revisor_id,
-                            articulo["duenio_id"],
-                            articulo["seguro_poliza"],
-                        ),
+                        "SELECT identificador FROM productos WHERE seguro = %s",
+                        (articulo["seguro_poliza"],),
                     )
-                    producto_id = cursor.fetchone()["identificador"]
-                    for foto_url in articulo.get("fotos") or []:
+                    existing_product = cursor.fetchone()
+                    if existing_product:
+                        producto_id = existing_product["identificador"]
+                    else:
+                        revisor_id = SubastaRepository._resolve_catalog_responsable(
+                            db, usuario_id
+                        )
                         cursor.execute(
                             """
-                            INSERT INTO fotos_adicionales (producto, foto_url)
-                            VALUES (%s, %s)
+                            INSERT INTO productos (
+                                fecha,
+                                disponible,
+                                descripcioncatalogo,
+                                descripcioncompleta,
+                                revisor,
+                                duenio,
+                                seguro
+                            )
+                            VALUES (CURRENT_DATE, 'si', %s, %s, %s, %s, %s)
+                            RETURNING identificador
                             """,
-                            (producto_id, str(foto_url)),
+                            (
+                                articulo["descripcion"],
+                                articulo["descripcion"],
+                                revisor_id,
+                                articulo["duenio_id"],
+                                articulo["seguro_poliza"],
+                            ),
                         )
+                        producto_id = cursor.fetchone()["identificador"]
+                        for foto_url in articulo.get("fotos") or []:
+                            cursor.execute(
+                                """
+                                INSERT INTO fotos_adicionales (producto, foto_url)
+                                VALUES (%s, %s)
+                                """,
+                                (producto_id, str(foto_url)),
+                            )
                 else:
                     cursor.execute(
                         "SELECT 1 FROM productos WHERE identificador = %s",
