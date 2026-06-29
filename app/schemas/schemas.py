@@ -426,6 +426,9 @@ class ArticuloInput(BaseModel):
     precioSugeridoUsuario: Optional[float] = Field(
         None, description='Valor estimado por el usuario (solo referencia)'
     )
+    moneda: Optional[Moneda] = Field(
+        None, description='Moneda del valor estimado (ARS o USD)'
+    )
     fotos: List[AnyUrl] = Field(..., min_items=6)
     documentacionOrigen: Optional[List[AnyUrl]] = Field(
         None, description='Documentacion que acredita el origen del articulo'
@@ -501,6 +504,7 @@ class Articulo(BaseModel):
     id: Optional[int] = None
     descripcion: Optional[str] = None
     precioSugeridoUsuario: Optional[float] = None
+    moneda: Optional[str] = None
     precioBasePropuesto: Optional[float] = None
     comisionPropuesta: Optional[float] = None
     tasacionAceptada: Optional[bool] = None

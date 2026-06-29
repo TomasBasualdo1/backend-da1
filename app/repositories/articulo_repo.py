@@ -31,6 +31,9 @@ class ArticuloRepository:
             if articulo.get(key) is not None:
                 articulo[key] = float(articulo[key])
 
+        if articulo.get("moneda") is not None:
+            articulo["moneda"] = str(articulo["moneda"])
+
         seguro_poliza = articulo.pop("seguroPoliza", None)
         seguro_compania = articulo.pop("seguroCompania", None)
         seguro_importe = articulo.pop("seguroImporte", None)
@@ -115,9 +118,10 @@ class ArticuloRepository:
                         fecha_envio,
                         fotos,
                         documentacion_origen,
-                        precio_sugerido_usuario
+                        precio_sugerido_usuario,
+                        moneda
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', CURRENT_TIMESTAMP, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendiente', CURRENT_TIMESTAMP, %s, %s, %s, %s)
                     RETURNING
                         identificador AS id,
                         duenio_id AS "duenioId",
@@ -128,6 +132,7 @@ class ArticuloRepository:
                         estado,
                         motivo_rechazo AS "motivoRechazo",
                         precio_sugerido_usuario AS "precioSugeridoUsuario",
+                        moneda,
                         precio_base_propuesto AS "precioBasePropuesto",
                         comision_propuesta AS "comisionPropuesta",
                         tasacion_aceptada AS "tasacionAceptada",
@@ -150,6 +155,7 @@ class ArticuloRepository:
                             payload.get("documentacionOrigen")
                         ),
                         payload.get("precioSugeridoUsuario"),
+                        payload.get("moneda"),
                     ),
                 )
                 created = ArticuloRepository._row_to_articulo(cursor.fetchone())
@@ -175,6 +181,7 @@ class ArticuloRepository:
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
                     a.precio_sugerido_usuario AS "precioSugeridoUsuario",
+                    a.moneda,
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
@@ -235,6 +242,7 @@ class ArticuloRepository:
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
                     a.precio_sugerido_usuario AS "precioSugeridoUsuario",
+                    a.moneda,
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
@@ -470,6 +478,7 @@ class ArticuloRepository:
                     a.estado,
                     a.motivo_rechazo AS "motivoRechazo",
                     a.precio_sugerido_usuario AS "precioSugeridoUsuario",
+                    a.moneda,
                     a.precio_base_propuesto AS "precioBasePropuesto",
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
