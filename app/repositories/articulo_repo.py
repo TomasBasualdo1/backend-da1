@@ -3,7 +3,12 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 from psycopg import Connection
 
-from app.schemas.schemas import ArticuloEvaluacion, ArticuloInput
+from app.schemas.schemas import (
+    ArticuloEvaluacion,
+    ArticuloInput,
+    ConfirmacionEnvioRequest,
+    SolicitudEnvioArticulo,
+)
 
 
 class ArticuloRepository:
@@ -27,7 +32,12 @@ class ArticuloRepository:
             return None
 
         articulo = dict(row)
-        for key in ("precioSugeridoUsuario", "precioBasePropuesto", "comisionPropuesta"):
+        for key in (
+            "precioSugeridoUsuario",
+            "precioBasePropuesto",
+            "comisionPropuesta",
+            "costoDevolucion",
+        ):
             if articulo.get(key) is not None:
                 articulo[key] = float(articulo[key])
 
@@ -137,7 +147,12 @@ class ArticuloRepository:
                         comision_propuesta AS "comisionPropuesta",
                         tasacion_aceptada AS "tasacionAceptada",
                         fecha_envio AS "fechaEnvio",
+                        fecha_envio_fisico AS "fechaEnvioFisico",
                         ubicacion,
+                        direccion_inspeccion AS "direccionInspeccion",
+                        instrucciones_envio AS "instruccionesEnvio",
+                        acepta_cargo_devolucion AS "aceptaCargoDevolucion",
+                        costo_devolucion AS "costoDevolucion",
                         seguro_poliza AS "seguroPoliza",
                         fotos,
                         documentacion_origen AS "documentacionOrigen"
@@ -186,7 +201,12 @@ class ArticuloRepository:
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
                     a.fecha_envio AS "fechaEnvio",
+                    a.fecha_envio_fisico AS "fechaEnvioFisico",
                     a.ubicacion,
+                    a.direccion_inspeccion AS "direccionInspeccion",
+                    a.instrucciones_envio AS "instruccionesEnvio",
+                    a.acepta_cargo_devolucion AS "aceptaCargoDevolucion",
+                    a.costo_devolucion AS "costoDevolucion",
                     a.fotos,
                     a.documentacion_origen AS "documentacionOrigen",
                     s.nropoliza AS "seguroPoliza",
@@ -247,7 +267,12 @@ class ArticuloRepository:
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
                     a.fecha_envio AS "fechaEnvio",
+                    a.fecha_envio_fisico AS "fechaEnvioFisico",
                     a.ubicacion,
+                    a.direccion_inspeccion AS "direccionInspeccion",
+                    a.instrucciones_envio AS "instruccionesEnvio",
+                    a.acepta_cargo_devolucion AS "aceptaCargoDevolucion",
+                    a.costo_devolucion AS "costoDevolucion",
                     a.fotos,
                     a.documentacion_origen AS "documentacionOrigen",
                     s.nropoliza AS "seguroPoliza",
@@ -322,7 +347,8 @@ class ArticuloRepository:
                         estado = %s,
                         motivo_rechazo = %s,
                         precio_base_propuesto = %s,
-                        comision_propuesta = %s
+                        comision_propuesta = %s,
+                        costo_devolucion = %s
                     WHERE identificador = %s
                     """,
                     (
@@ -330,6 +356,7 @@ class ArticuloRepository:
                         payload.get("motivoRechazo"),
                         payload.get("precioBasePropuesto"),
                         payload.get("comisionPropuesta"),
+                        payload.get("costoDevolucion"),
                         id,
                     ),
                 )
@@ -464,10 +491,25 @@ class ArticuloRepository:
                 )
 
     @staticmethod
-    def get_all_pendientes(db: Connection) -> list[dict]:
+    def get_all_pendientes(db: Connection, estado: str | None = None) -> list[dict]:
+        estados_revisables = (
+            'pendiente', 'interesado', 'en_transito', 'en_inspeccion'
+        )
         with db.cursor() as cursor:
+            if estado:
+                if estado not in estados_revisables:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Estado de filtro inválido: {estado}",
+                    )
+                where_clause = "a.estado = %s"
+                params: tuple = (estado,)
+            else:
+                where_clause = "a.estado IN ('pendiente', 'interesado', 'en_transito', 'en_inspeccion')"
+                params = ()
+
             cursor.execute(
-                """
+                f"""
                 SELECT
                     a.identificador AS id,
                     a.duenio_id AS "duenioId",
@@ -483,17 +525,201 @@ class ArticuloRepository:
                     a.comision_propuesta AS "comisionPropuesta",
                     a.tasacion_aceptada AS "tasacionAceptada",
                     a.fecha_envio AS "fechaEnvio",
+                    a.fecha_envio_fisico AS "fechaEnvioFisico",
                     a.ubicacion,
+                    a.direccion_inspeccion AS "direccionInspeccion",
+                    a.instrucciones_envio AS "instruccionesEnvio",
+                    a.acepta_cargo_devolucion AS "aceptaCargoDevolucion",
+                    a.costo_devolucion AS "costoDevolucion",
                     a.fotos,
                     a.documentacion_origen AS "documentacionOrigen",
                     p.nombre AS duenio_nombre
                 FROM articulos a
                 JOIN personas p ON a.duenio_id = p.identificador
-                WHERE a.estado IN ('pendiente', 'en_inspeccion')
+                WHERE {where_clause}
                 ORDER BY a.fecha_envio
-                """
+                """,
+                params,
             )
             return [
                 ArticuloRepository._row_to_articulo(row)
                 for row in cursor.fetchall()
             ]
+
+    @staticmethod
+    def marcar_interes(
+        db: Connection, id: int, data: SolicitudEnvioArticulo
+    ) -> dict:
+        """Admin marca interés e indica la dirección de inspección.
+
+        Transición: pendiente -> interesado.
+        """
+        payload = ArticuloRepository._dump_schema(data)
+        try:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "SELECT estado FROM articulos WHERE identificador = %s",
+                    (id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Articulo no encontrado.",
+                    )
+                if row["estado"] != "pendiente":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"El artículo no está pendiente (estado actual: "
+                            f"{row['estado']}). No se puede solicitar el envío."
+                        ),
+                    )
+
+                cursor.execute(
+                    """
+                    UPDATE articulos
+                    SET
+                        estado = 'interesado',
+                        direccion_inspeccion = %s,
+                        instrucciones_envio = %s
+                    WHERE identificador = %s
+                    """,
+                    (
+                        payload.get("direccionInspeccion"),
+                        payload.get("instruccionesEnvio"),
+                        id,
+                    ),
+                )
+
+            db.commit()
+            return ArticuloRepository.get_articulo(db, id)
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def confirmar_envio(
+        db: Connection, id: int, data: ConfirmacionEnvioRequest
+    ) -> dict:
+        """Usuario confirma el envío físico del bien y acepta el cargo de devolución.
+
+        Transición: interesado -> en_transito (si acepta) o
+                    interesado -> rechazado (si declina el envío).
+        """
+        payload = ArticuloRepository._dump_schema(data)
+        acepta = bool(payload.get("aceptaCargoDevolucion"))
+        try:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "SELECT estado FROM articulos WHERE identificador = %s",
+                    (id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Articulo no encontrado.",
+                    )
+                if row["estado"] != "interesado":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"El artículo no está esperando envío (estado actual: "
+                            f"{row['estado']})."
+                        ),
+                    )
+
+                if acepta:
+                    cursor.execute(
+                        """
+                        UPDATE articulos
+                        SET
+                            estado = 'en_transito',
+                            acepta_cargo_devolucion = TRUE,
+                            fecha_envio_fisico = CURRENT_TIMESTAMP
+                        WHERE identificador = %s
+                        """,
+                        (id,),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE articulos
+                        SET
+                            estado = 'rechazado',
+                            acepta_cargo_devolucion = FALSE,
+                            motivo_rechazo = 'El usuario declinó el envío del bien.'
+                        WHERE identificador = %s
+                        """,
+                        (id,),
+                    )
+
+            db.commit()
+            return ArticuloRepository.get_articulo(db, id)
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def recibir_articulo(
+        db: Connection, id: int, ubicacion: str | None = None
+    ) -> dict:
+        """Admin registra la recepción del bien en el depósito.
+
+        Transición: en_transito -> en_inspeccion.
+        """
+        try:
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "SELECT estado FROM articulos WHERE identificador = %s",
+                    (id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Articulo no encontrado.",
+                    )
+                if row["estado"] != "en_transito":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"El artículo no está en tránsito (estado actual: "
+                            f"{row['estado']}). No se puede registrar su recepción."
+                        ),
+                    )
+
+                if ubicacion:
+                    cursor.execute(
+                        """
+                        UPDATE articulos
+                        SET estado = 'en_inspeccion', ubicacion = %s
+                        WHERE identificador = %s
+                        """,
+                        (ubicacion, id),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE articulos
+                        SET estado = 'en_inspeccion'
+                        WHERE identificador = %s
+                        """,
+                        (id,),
+                    )
+
+            db.commit()
+            return ArticuloRepository.get_articulo(db, id)
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise

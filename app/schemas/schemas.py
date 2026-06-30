@@ -439,6 +439,8 @@ class ArticuloInput(BaseModel):
 
 class EstadoArticulo(Enum):
     pendiente = 'pendiente'
+    interesado = 'interesado'
+    en_transito = 'en_transito'
     en_inspeccion = 'en_inspeccion'
     aprobado = 'aprobado'
     rechazado = 'rechazado'
@@ -455,11 +457,31 @@ class ArticuloEvaluacion(BaseModel):
     motivoRechazo: Optional[str] = None
     precioBasePropuesto: Optional[float] = None
     comisionPropuesta: Optional[float] = None
+    costoDevolucion: Optional[float] = None
     subastaSugeridaId: Optional[int] = None
 
 
 class AceptarTasacionRequest(BaseModel):
     acepta: bool
+
+
+class SolicitudEnvioArticulo(BaseModel):
+    direccionInspeccion: str = Field(
+        ..., description='Dirección a la que el usuario debe enviar el bien para inspección'
+    )
+    instruccionesEnvio: Optional[str] = Field(
+        None, description='Instrucciones opcionales para el envío (remitente, horarios, acuses)'
+    )
+
+
+class ConfirmacionEnvioRequest(BaseModel):
+    aceptaCargoDevolucion: bool = Field(
+        ...,
+        description=(
+            'El usuario acepta que, en caso de no aceptarse el bien enviado, '
+            'la empresa lo devolverá con cargo al usuario.'
+        ),
+    )
 
 
 class Seguro(BaseModel):
@@ -514,8 +536,13 @@ class Articulo(BaseModel):
     estado: Optional[EstadoArticulo] = None
     motivoRechazo: Optional[str] = None
     fechaEnvio: Optional[datetime] = None
+    fechaEnvioFisico: Optional[datetime] = None
     fotos: Optional[List[AnyUrl]] = None
     ubicacion: Optional[str] = Field(None, example='Deposito CABA')
+    direccionInspeccion: Optional[str] = None
+    instruccionesEnvio: Optional[str] = None
+    aceptaCargoDevolucion: Optional[bool] = None
+    costoDevolucion: Optional[float] = None
     seguro: Optional[Seguro] = None
     subastaId: Optional[int] = None
     subastaFecha: Optional[date] = None

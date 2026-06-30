@@ -3,7 +3,12 @@ from psycopg import Connection
 
 from app.repositories.articulo_repo import ArticuloRepository
 from app.repositories.usuario_repo import UsuarioRepository
-from app.schemas.schemas import ArticuloEvaluacion, CatalogoItemInput, SubastaCreate
+from app.schemas.schemas import (
+    ArticuloEvaluacion,
+    CatalogoItemInput,
+    SolicitudEnvioArticulo,
+    SubastaCreate,
+)
 from app.services.category_service import CategoryService
 from app.services.subasta_service import SubastaService
 
@@ -84,6 +89,10 @@ class AdminService:
                 )
             else:
                 mensaje += f" Motivo: {data.motivoRechazo}"
+                if data.costoDevolucion is not None:
+                    mensaje += (
+                        f" Cargo de devolución a tu cargo: ${data.costoDevolucion}."
+                    )
 
             cursor.execute(
                 "INSERT INTO notificaciones (persona_id, tipo, mensaje) VALUES (%s, 'sistema', %s)",
@@ -122,8 +131,62 @@ class AdminService:
         return {"message": f"Categoría del usuario actualizada a {categoria} exitosamente."}
 
     @staticmethod
-    def get_pending_articles(db: Connection) -> list[dict]:
-        return ArticuloRepository.get_all_pendientes(db)
+    def get_pending_articles(
+        db: Connection, estado: str | None = None
+    ) -> list[dict]:
+        return ArticuloRepository.get_all_pendientes(db, estado)
+
+    @staticmethod
+    def request_article_envio(
+        db: Connection, articulo_id: int, data: SolicitudEnvioArticulo
+    ) -> dict:
+        articulo = ArticuloRepository.get_articulo(db, articulo_id)
+        if not articulo:
+            raise HTTPException(status_code=404, detail="Artículo no encontrado")
+
+        result = ArticuloRepository.marcar_interes(db, articulo_id, data)
+
+        mensaje = (
+            f"La empresa está interesada en tu artículo #{articulo_id}. "
+            f"Enviá el bien a: {data.direccionInspeccion}."
+        )
+        if data.instruccionesEnvio:
+            mensaje += f" Instrucciones: {data.instruccionesEnvio}."
+        mensaje += (
+            " Recordá que aceptás que, en caso de no aceptarse el bien enviado, "
+            "la empresa lo devolverá con cargo a vos."
+        )
+
+        with db.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO notificaciones (persona_id, tipo, mensaje) "
+                "VALUES (%s, 'sistema', %s)",
+                (articulo["duenioId"], mensaje),
+            )
+        db.commit()
+        return result
+
+    @staticmethod
+    def receive_article(
+        db: Connection, articulo_id: int, ubicacion: str | None = None
+    ) -> dict:
+        articulo = ArticuloRepository.get_articulo(db, articulo_id)
+        if not articulo:
+            raise HTTPException(status_code=404, detail="Artículo no encontrado")
+
+        result = ArticuloRepository.recibir_articulo(db, articulo_id, ubicacion)
+
+        mensaje = f"Recibimos tu artículo #{articulo_id}. Está en inspección."
+        if ubicacion:
+            mensaje += f" Ubicación: {ubicacion}."
+        with db.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO notificaciones (persona_id, tipo, mensaje) "
+                "VALUES (%s, 'sistema', %s)",
+                (articulo["duenioId"], mensaje),
+            )
+        db.commit()
+        return result
 
     @staticmethod
     def get_pending_payment_methods(db: Connection) -> list[dict]:

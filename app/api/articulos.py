@@ -9,6 +9,7 @@ from app.schemas.schemas import (
     AceptarTasacionRequest,
     Articulo,
     ArticuloInput,
+    ConfirmacionEnvioRequest,
     SeguroAumentoRequest,
 )
 from app.services.articulo_service import ArticuloService
@@ -125,6 +126,17 @@ async def accept_valuation(
     user: dict = Depends(get_current_user),
 ):
     return ArticuloService.aceptar_tasacion(db, id, user["usuarioId"], body.acepta)
+
+
+@router.post("/{id}/confirmar-envio", response_model=Articulo)
+async def confirm_envio(
+    id: int,
+    body: ConfirmacionEnvioRequest,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Usuario confirma el envío físico del bien y acepta el cargo de devolución."""
+    return ArticuloService.confirmar_envio(db, id, user["usuarioId"], body)
 
 
 @router.post("/{id}/seguro/aumentar")

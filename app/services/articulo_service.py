@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from psycopg import Connection
 
 from app.repositories.articulo_repo import ArticuloRepository
-from app.schemas.schemas import ArticuloInput
+from app.schemas.schemas import ArticuloInput, ConfirmacionEnvioRequest
 
 
 class ArticuloService:
@@ -63,7 +63,60 @@ class ArticuloService:
                 detail="El artículo no está aprobado por tasación aún",
             )
 
-        return ArticuloRepository.aceptar_tasacion(db, articulo_id, acepta)
+        result = ArticuloRepository.aceptar_tasacion(db, articulo_id, acepta)
+
+        if not acepta:
+            cargo = result.get("costoDevolucion")
+            mensaje = (
+                f"Rechazaste la tasación del artículo #{articulo_id}. "
+                f"El bien será devuelto con cargo a vos."
+            )
+            if cargo is not None:
+                mensaje += f" Cargo de devolución: ${cargo}."
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO notificaciones (persona_id, tipo, mensaje) "
+                    "VALUES (%s, 'sistema', %s)",
+                    (articulo["duenioId"], mensaje),
+                )
+            db.commit()
+
+        return result
+
+    @staticmethod
+    def confirmar_envio(
+        db: Connection, articulo_id: int, usuario_id: int, data: ConfirmacionEnvioRequest
+    ) -> dict:
+        articulo = ArticuloRepository.get_articulo(db, articulo_id)
+        if not articulo:
+            raise HTTPException(status_code=404, detail="Artículo no encontrado")
+        if articulo.get("duenioId") != usuario_id:
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes permisos para este artículo",
+            )
+        if articulo["estado"] != "interesado":
+            raise HTTPException(
+                status_code=400,
+                detail="El artículo no está esperando confirmación de envío",
+            )
+
+        result = ArticuloRepository.confirmar_envio(db, articulo_id, data)
+
+        if not data.aceptaCargoDevolucion:
+            mensaje = (
+                f"Declinaste el envío del artículo #{articulo_id}. "
+                f"El proceso de consignación finalizó."
+            )
+            with db.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO notificaciones (persona_id, tipo, mensaje) "
+                    "VALUES (%s, 'sistema', %s)",
+                    (articulo["duenioId"], mensaje),
+                )
+            db.commit()
+
+        return result
 
     @staticmethod
     def solicitar_aumento_seguro(

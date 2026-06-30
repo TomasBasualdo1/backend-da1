@@ -9,6 +9,7 @@ from app.schemas.schemas import (
     AutoCategoryResult,
     CatalogoItemInput,
     MedioPagoVerificacion,
+    SolicitudEnvioArticulo,
     SubastaCreate,
     Usuario,
     UsuarioVerificacion,
@@ -96,6 +97,31 @@ async def evaluate_article(
     return AdminService.evaluate_article(db, id, body)
 
 
+@router.post("/articulos/{id}/solicitar-envio", response_model=Articulo)
+async def request_article_envio(
+    id: int,
+    body: SolicitudEnvioArticulo,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Admin manifiesta interés y le indica al usuario la dirección de inspección."""
+    _require_admin(user)
+    return AdminService.request_article_envio(db, id, body)
+
+
+@router.post("/articulos/{id}/recibir", response_model=Articulo)
+async def receive_article(
+    id: int,
+    body: dict | None = None,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Admin registra la recepción del bien en el depósito (en_transito -> en_inspeccion)."""
+    _require_admin(user)
+    ubicacion = (body or {}).get("ubicacion") if isinstance(body, dict) else None
+    return AdminService.receive_article(db, id, ubicacion)
+
+
 @router.post("/subastas", status_code=201)
 async def create_auction(
     body: SubastaCreate,
@@ -156,13 +182,14 @@ async def recalculate_user_category(
     return CategoryService.evaluate_and_upgrade(db, id)
 
 
-@router.get("/articulos/pendientes")
+@router.get("/articulos/pendientes", response_model=list[Articulo])
 async def get_pending_articles(
+    estado: str | None = None,
     db: Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     _require_admin(user)
-    return AdminService.get_pending_articles(db)
+    return AdminService.get_pending_articles(db, estado)
 
 
 @router.get("/medios-pago/pendientes")
