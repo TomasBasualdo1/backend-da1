@@ -10,6 +10,7 @@ from app.schemas.schemas import (
     CatalogoItemInput,
     MedioPagoVerificacion,
     SubastaCreate,
+    TopePersonalizadoRequest,
     Usuario,
     UsuarioVerificacion,
     UpdateCategoriaRequest,
@@ -190,3 +191,15 @@ async def get_approved_non_cataloged_articles(
 ):
     _require_admin(user)
     return AdminService.get_approved_non_cataloged_articles(db)
+
+
+@router.patch("/subastas/{subasta_id}/asistentes/{cliente_id}/tope")
+async def set_tope_asistente(
+    subasta_id: int,
+    cliente_id: int,
+    body: TopePersonalizadoRequest,
+    db: Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    _require_admin(user)
+    return AdminService.set_tope_maximo_asistente(db, subasta_id, cliente_id, body.topeMaximo)

@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from psycopg import Connection
 
 from app.repositories.articulo_repo import ArticuloRepository
+from app.repositories.subasta_repo import SubastaRepository
 from app.repositories.usuario_repo import UsuarioRepository
 from app.schemas.schemas import ArticuloEvaluacion, CatalogoItemInput, SubastaCreate
 from app.services.category_service import CategoryService
@@ -186,3 +187,18 @@ class AdminService:
                 """
             )
             return cursor.fetchall()
+
+    @staticmethod
+    def set_tope_maximo_asistente(
+        db: Connection, subasta_id: int, cliente_id: int, tope_maximo: float | None
+    ) -> dict:
+        updated = SubastaRepository.set_tope_asistente(db, subasta_id, cliente_id, tope_maximo)
+        if not updated:
+            raise HTTPException(
+                status_code=404,
+                detail="El usuario no está inscripto en esta subasta",
+            )
+        db.commit()
+        if tope_maximo is None:
+            return {"message": "Tope máximo restaurado al valor predefinido (20%)"}
+        return {"message": f"Tope máximo personalizado establecido en {tope_maximo * 100:.4g}%"}

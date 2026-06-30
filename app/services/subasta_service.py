@@ -377,12 +377,15 @@ class SubastaService:
             precio_base = float(item["preciobase"])
             mejor_oferta_actual = SubastaRepository.get_mejor_oferta(db, item_id)
 
+            tope_personalizado = SubastaRepository.get_tope_maximo_asistente(db, asistente_id)
+            pct_max = tope_personalizado if tope_personalizado is not None else 0.20
+
             if mejor_oferta_actual == 0.0:
                 limite_minimo = precio_base
-                limite_maximo = precio_base + (precio_base * 0.20)
+                limite_maximo = precio_base + (precio_base * pct_max)
             else:
                 limite_minimo = mejor_oferta_actual + (precio_base * 0.01)
-                limite_maximo = mejor_oferta_actual + (precio_base * 0.20)
+                limite_maximo = mejor_oferta_actual + (precio_base * pct_max)
 
             subasta = SubastaRepository.get_subasta_basica(db, subasta_id)
             categoria_subasta = subasta["categoria"] if subasta else "comun"
@@ -399,11 +402,12 @@ class SubastaService:
                         ),
                     )
                 if importe > limite_maximo:
+                    pct_max_display = int(pct_max * 100)
                     raise HTTPException(
                         status_code=400,
                         detail=(
                             f"La puja máxima permitida es de ${limite_maximo:.2f} "
-                            "(mejor oferta + 20% del valor base)"
+                            f"(mejor oferta + {pct_max_display}% del valor base)"
                         ),
                     )
             else:
@@ -437,7 +441,7 @@ class SubastaService:
             )
 
             nuevo_limite_minimo = importe + (precio_base * 0.01)
-            nuevo_limite_maximo = importe + (precio_base * 0.20)
+            nuevo_limite_maximo = importe + (precio_base * pct_max)
 
             response = {
                 "pujaId": puja_id,

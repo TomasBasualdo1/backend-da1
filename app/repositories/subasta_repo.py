@@ -488,6 +488,37 @@ class SubastaRepository:
             return row["identificador"] if row else None
 
     @staticmethod
+    def get_tope_maximo_asistente(db: Connection, asistente_id: int) -> float | None:
+        from decimal import Decimal
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT tope_maximo FROM asistentes WHERE identificador = %s",
+                (asistente_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            val = row["tope_maximo"]
+            if not isinstance(val, (int, float, Decimal)):
+                return None
+            return float(val)
+
+    @staticmethod
+    def set_tope_asistente(
+        db: Connection, subasta_id: int, cliente_id: int, tope_maximo: float | None
+    ) -> bool:
+        with db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE asistentes
+                SET tope_maximo = %s
+                WHERE subasta = %s AND cliente = %s
+                """,
+                (tope_maximo, subasta_id, cliente_id),
+            )
+            return cursor.rowcount > 0
+
+    @staticmethod
     def get_item_for_update(db: Connection, subasta_id: int, item_id: int) -> dict | None:
         with db.cursor() as cursor:
             cursor.execute(

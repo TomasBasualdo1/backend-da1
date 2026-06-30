@@ -287,6 +287,19 @@ class PujaResponse(BaseModel):
     esGanadoraParcial: Optional[bool] = None
 
 
+class TopePersonalizadoRequest(BaseModel):
+    topeMaximo: Optional[float] = Field(
+        None,
+        description=(
+            "Tope máximo personalizado como fracción decimal (ej: 0.35 = 35%). "
+            "Debe ser mayor a 0 y menor o igual a 1. "
+            "Enviar null para restaurar el tope predefinido del 20%."
+        ),
+        gt=0,
+        le=1,
+    )
+
+
 class CodigoGarantiaInsuficiente(Enum):
     GARANTIA_INSUFICIENTE = 'GARANTIA_INSUFICIENTE'
 
