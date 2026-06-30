@@ -1094,6 +1094,39 @@ class SubastaRepository:
             )
 
     @staticmethod
+    def get_primer_medio_pago_validado(db: Connection, cliente_id: int, moneda: str) -> dict | None:
+        with db.cursor() as cursor:
+            cursor.execute( #Aca agarramos el id del ganador y la moneda de la subasta. Despues verifico el medio de pago que esta validado y que coincida con la moneda.
+                """
+                SELECT
+                    identificador AS id,
+                    cliente_id,
+                    estado_verificacion,
+                    moneda,
+                    limite_reservado
+                FROM medios_pago
+                WHERE cliente_id = %s
+                  AND estado_verificacion = 'validado'
+                  AND moneda = %s
+                  AND (es_cuenta_receptora = false OR es_cuenta_receptora IS NULL)
+                ORDER BY identificador ASC
+                LIMIT 1
+                """,
+                (cliente_id, moneda),
+            )
+            return cursor.fetchone()
+
+    @staticmethod# Aca pedimos la direccion para mandarselo por envio
+    def get_direccion_usuario(db: Connection, persona_id: int) -> str | None:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT direccion FROM personas WHERE identificador = %s",
+                (persona_id,),
+            )
+            row = cursor.fetchone()
+            return row["direccion"] if row else None
+
+    @staticmethod
     def generar_multa(
         db: Connection, cliente_id: int, importe_pujado: float, motivo: str
     ) -> tuple[dict, bool]:

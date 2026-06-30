@@ -609,7 +609,7 @@ class SubastaService:
                     importe_final,
                     comision_item,
                 )
-                SubastaRepository.generar_pago(
+                pago_id = SubastaRepository.generar_pago(
                     db,
                     subasta_id,
                     cliente_ganador,
@@ -619,13 +619,48 @@ class SubastaService:
                 )
                 pagos_generados = 1
 
-                SubastaRepository.crear_notificacion(
-                    db,
-                    cliente_ganador,
-                    "subasta",
-                    f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
-                    f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
+                # ── Modificacion para un auto pago ──
+                auto_pagado = False
+                medio = SubastaRepository.get_primer_medio_pago_validado(
+                    db, cliente_ganador, subasta["moneda"]
                 )
+                if medio:
+                    direccion = SubastaRepository.get_direccion_usuario(
+                        db, cliente_ganador
+                    )
+                    costo_envio = COSTO_ENVIO_SUBASTA if direccion else 0.0
+                    modo = "envio" if direccion else "retiro"
+                    acepta_seguro = modo == "retiro"
+                    total_final = importe_final + comision_item + costo_envio
+
+                    SubastaRepository.confirmar_pago(
+                        db,
+                        pago_id,
+                        medio["id"],
+                        modo,
+                        direccion,
+                        acepta_seguro,
+                        costo_envio,
+                        total_final,
+                    )
+                    auto_pagado = True
+
+                if auto_pagado:
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_ganador,
+                        "subasta",
+                        f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
+                        f"Comision: ${comision_item:.2f}. Pago confirmado automaticamente.",
+                    )
+                else:
+                    SubastaRepository.crear_notificacion(
+                        db,
+                        cliente_ganador,
+                        "subasta",
+                        f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
+                        f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
+                    )
 
                 SubastaRepository.crear_notificacion(
                     db,
