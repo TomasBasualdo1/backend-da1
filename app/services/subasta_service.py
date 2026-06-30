@@ -626,6 +626,14 @@ class SubastaService:
                     f"Ganaste el item #{item_id} por ${importe_final:.2f}. "
                     f"Comision: ${comision_item:.2f}. Tenes 72hs para abonar.",
                 )
+
+                SubastaRepository.crear_notificacion(
+                    db,
+                    duenio_id,
+                    "subasta",
+                    f"Tu articulo #{producto_id} se vendio por ${importe_final:.2f}. "
+                    f"Comision: ${comision_item:.2f}.",
+                )
             else:
                 SubastaRepository.cerrar_item(db, item_id, None)
                 SubastaRepository.crear_notificacion(
